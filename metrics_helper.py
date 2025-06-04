@@ -1,6 +1,10 @@
 import subprocess
 import json
 import re
+import logging
+
+# Get logger
+logger = logging.getLogger('k8s_dashboard')
 
 def get_pod_metrics():
     """Get pod metrics from kubectl top pods"""
@@ -33,12 +37,12 @@ def get_pod_metrics():
                     "memory": memory
                 }
                 
-                # Debug output
-                print(f"Added metrics for pod {key}: CPU={cpu}, Memory={memory}")
+                # Debug output to log file instead of console
+                logger.debug(f"Added metrics for pod {key}: CPU={cpu}, Memory={memory}")
         
         return pod_metrics
     except Exception as e:
-        print(f"Error getting pod metrics: {e}")
+        logger.error(f"Error getting pod metrics: {e}")
         return {}
 
 def get_node_metrics():
@@ -75,7 +79,7 @@ def get_node_metrics():
         
         return node_metrics
     except Exception as e:
-        print(f"Error getting node metrics: {e}")
+        logger.error(f"Error getting node metrics: {e}")
         return {}
 
 def format_cpu(cpu_str):

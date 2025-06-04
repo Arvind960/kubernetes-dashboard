@@ -1,0 +1,15 @@
+[Unit]
+Description=Kubernetes Dashboard Service
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/python-script
+ExecStart=/usr/bin/python3 /root/python-script/k8s_dashboard_server_updated.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/root/python-script/logs/k8s_dashboard.log
+StandardError=append:/root/python-script/logs/k8s_dashboard.log
+
+[Install]
+WantedBy=multi-user.target

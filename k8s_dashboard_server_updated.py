@@ -1,5 +1,7 @@
 import os
 import time
+import sys
+import logging
 from flask import Flask, render_template, jsonify, request
 from kubernetes import client, config
 import datetime
@@ -9,18 +11,39 @@ import subprocess
 import json
 from metrics_helper import get_pod_metrics, get_node_metrics, format_cpu, format_memory
 
+# Set up logging to file
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+log_file = os.path.join(log_dir, 'k8s_dashboard.log')
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('k8s_dashboard')
+
+# Redirect stdout and stderr to the log file
+sys.stdout = open(log_file, 'a', buffering=1)
+sys.stderr = open(log_file, 'a', buffering=1)
+
 app = Flask(__name__)
 
 # Load Kubernetes configuration
 try:
     config.load_kube_config()
-    print("Loaded kube config successfully")
+    logger.info("Loaded kube config successfully")
 except Exception as e:
     try:
         config.load_incluster_config()
-        print("Loaded in-cluster config successfully")
+        logger.info("Loaded in-cluster config successfully")
     except Exception as e:
-        print(f"Could not load Kubernetes config: {e}")
+        logger.error(f"Could not load Kubernetes config: {e}")
 
 # Initialize Kubernetes API clients
 v1 = client.CoreV1Api()
@@ -462,8 +485,8 @@ def get_data():
             "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
     except Exception as e:
-        print(f"Error getting data: {e}")
-        traceback.print_exc()
+        logger.error(f"Error getting data: {e}")
+        traceback.print_exc(file=sys.stderr)
         return jsonify({"error": str(e)}), 500
 
 def calculate_age(timestamp):
@@ -538,12 +561,12 @@ def stop_pod():
                 'message': "Namespace and pod name are required"
             }), 400
         
-        print(f"Pausing pod {name} in namespace {namespace}")
+        logger.info(f"Pausing pod {name} in namespace {namespace}")
         
         # If the pod is owned by a deployment, pause the deployment
         if owner_kind == "Deployment" and owner_name:
             try:
-                print(f"Pod is owned by Deployment {owner_name}, pausing deployment")
+                logger.info(f"Pod is owned by Deployment {owner_name}, pausing deployment")
                 
                 # Create a patch to set paused to true
                 patch = {"spec": {"paused": True}}
@@ -559,7 +582,7 @@ def stop_pod():
                     'message': f"Deployment {owner_name} in namespace {namespace} has been paused"
                 })
             except ApiException as e:
-                print(f"Error pausing deployment: {e}")
+                logger.error(f"Error pausing deployment: {e}")
                 # Fall back to deleting the pod if there's an error with the deployment
         
         # For standalone pods, we can't actually pause them in Kubernetes
@@ -646,12 +669,12 @@ def start_pod():
         owner_kind = data.get('owner_kind')
         owner_name = data.get('owner_name')
         
-        print(f"Resuming pod/deployment: {namespace}/{name}, owner: {owner_kind}/{owner_name}")
+        logger.info(f"Resuming pod/deployment: {namespace}/{name}, owner: {owner_kind}/{owner_name}")
         
         # If the pod is owned by a deployment, unpause the deployment
         if owner_kind == "Deployment" and owner_name:
             try:
-                print(f"Pod is owned by Deployment {owner_name}, unpausing deployment")
+                logger.info(f"Pod is owned by Deployment {owner_name}, unpausing deployment")
                 
                 # Create a patch to set paused to false
                 patch = {"spec": {"paused": False}}
@@ -667,7 +690,7 @@ def start_pod():
                     'message': f"Deployment {owner_name} in namespace {namespace} has been resumed"
                 })
             except ApiException as e:
-                print(f"Error unpausing deployment: {e}")
+                logger.error(f"Error unpausing deployment: {e}")
                 return jsonify({
                     'success': False,
                     'message': f"Error unpausing deployment: {e.reason}"
@@ -756,37 +779,38 @@ def start_pod():
                         
                         try:
                             v1.create_namespaced_pod(namespace=namespace, body=pod_manifest)
-                            print(f"Created pod {name}")
+                            logger.info(f"Created pod {name}")
                             return jsonify({
                                 'success': True,
                                 'message': f"Pod {name} created in namespace {namespace}"
                             })
                         except ApiException as create_error:
-                            print(f"Error creating pod: {create_error}")
+                            logger.error(f"Error creating pod: {create_error}")
                             return jsonify({
                                 'success': False,
                                 'message': f"Error creating pod: {create_error.reason}"
                             }), create_error.status
                     else:
-                        print(f"Error checking if pod exists: {pod_error}")
+                        logger.error(f"Error checking if pod exists: {pod_error}")
                         return jsonify({
                             'success': False,
                             'message': f"Error checking if pod exists: {pod_error.reason}"
                         }), pod_error.status
             else:
-                print(f"Error checking for ConfigMap: {e}")
+                logger.error(f"Error checking for ConfigMap: {e}")
                 return jsonify({
                     'success': False,
                     'message': f"Error checking for ConfigMap: {e.reason}"
                 }), e.status
             
     except Exception as e:
-        print(f"Unexpected error in start_pod: {e}")
-        traceback.print_exc()
+        logger.error(f"Unexpected error in start_pod: {e}")
+        traceback.print_exc(file=sys.stderr)
         return jsonify({
             'success': False,
             'message': f"Unexpected error: {str(e)}"
         }), 500
 
 if __name__ == '__main__':
+    logger.info("Starting Kubernetes Dashboard Server")
     app.run(host='0.0.0.0', port=8888)
