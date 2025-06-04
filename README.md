@@ -1,136 +1,72 @@
-# Kubernetes Monitoring Dashboard
+# Kubernetes Dashboard
 
-A lightweight, web-based dashboard for monitoring Kubernetes clusters with a clean interface similar to the official Kubernetes Dashboard.
-
-## Overview
-
-This project provides a simple yet powerful monitoring solution for Kubernetes clusters. It displays real-time information about:
-
-- Cluster health status
-- Nodes
-- Namespaces
-- Pods
-- Deployments
-- Services
-- Resource usage (CPU and memory)
-- Alerts for potential issues
-
-The dashboard is built with Python Flask and uses the Kubernetes Python client to interact with the Kubernetes API.
+A lightweight, web-based Kubernetes monitoring dashboard that provides real-time insights into your cluster's resources.
 
 ## Features
 
-- **Clean, Modern UI**: Interface inspired by the official Kubernetes Dashboard
-- **Real-time Monitoring**: Automatic data refresh
-- **Resource Visualization**: CPU and memory usage charts
-- **Alert System**: Notifications for cluster issues
-- **Multi-resource View**: Monitor all key Kubernetes resources in one place
+- **Real-time Metrics**: Monitor CPU and memory usage for all pods and nodes
+- **Resource Overview**: View counts and status of pods, deployments, services, and namespaces
+- **Pod Management**: Pause and resume deployments directly from the UI
+- **Cluster Health**: Monitor the health status of your cluster components
+- **Alerts**: Get notified about potential issues in your cluster
+- **Namespace Filtering**: Filter resources by namespace
+- **Search Functionality**: Quickly find specific resources
 
-## Screenshots
+## Components
 
-![Dashboard Overview](https://github.com/kubernetes/dashboard/blob/master/docs/images/overview.png)
+- **Backend**: Python Flask server that interacts with the Kubernetes API
+- **Frontend**: Responsive web UI built with HTML, CSS, and JavaScript
+- **Metrics Collection**: Integration with Kubernetes metrics-server
 
-## Prerequisites
+## Requirements
 
 - Python 3.6+
-- Access to a Kubernetes cluster
-- `kubectl` configured with appropriate permissions
+- Kubernetes cluster with metrics-server installed
+- kubectl configured with cluster access
 
 ## Installation
 
 1. Clone this repository:
    ```
-   git clone <repository-url>
-   cd kubernetes-monitoring-dashboard
+   git clone https://github.com/yourusername/kubernetes-dashboard.git
+   cd kubernetes-dashboard
    ```
 
 2. Install the required Python packages:
    ```
-   pip install -r requirements.txt
+   pip install flask kubernetes
    ```
 
-3. Ensure you have access to your Kubernetes cluster:
+3. Run the dashboard server:
    ```
-   kubectl get nodes
-   ```
-
-## Configuration
-
-The dashboard automatically uses your current Kubernetes context. Make sure your `~/.kube/config` file is properly configured.
-
-For in-cluster deployment, the application will use the service account token.
-
-## Deployment Options
-
-### Local Development
-
-Run the dashboard locally:
-
-```
-python k8s_dashboard_server.py
-```
-
-Access the dashboard at http://localhost:8888
-
-### Docker Deployment
-
-1. Build the Docker image:
-   ```
-   docker build -t k8s-monitoring-dashboard:latest .
+   python k8s_dashboard_server_updated.py
    ```
 
-2. Run the container:
+4. Access the dashboard in your browser:
    ```
-   docker run -p 8888:8888 -v ~/.kube:/root/.kube k8s-monitoring-dashboard:latest
-   ```
-
-### Kubernetes Deployment
-
-1. Apply the deployment manifest:
-   ```
-   kubectl apply -f kubernetes/deployment.yaml
+   http://localhost:8888
    ```
 
-2. Access the dashboard through the created service:
-   ```
-   kubectl port-forward svc/k8s-monitoring-dashboard 8888:8888
-   ```
+## Usage
 
-## Project Structure
+- **View Resources**: Navigate through the different sections to view pods, deployments, services, and namespaces
+- **Filter Resources**: Use the namespace dropdown to filter resources by namespace
+- **Search**: Use the search box to find specific resources
+- **Pod Management**: Use the Pause and Resume buttons to control deployments
+- **Refresh**: Click the refresh button to update the dashboard with the latest data
 
-```
-/
-├── k8s_dashboard_server.py     # Main application server
-├── requirements.txt            # Python dependencies
-├── static/                     # Static assets (CSS, JS)
-│   ├── css/
-│   ├── js/
-│   └── img/
-└── templates/                  # HTML templates
-    └── fixed_template.html     # Main dashboard template
-```
+## Architecture
 
-## Security Considerations
+The dashboard consists of the following components:
 
-- The dashboard requires read access to multiple Kubernetes resources
-- For production use, consider implementing authentication
-- Use RBAC to limit the service account permissions
+- **k8s_dashboard_server_updated.py**: Main Flask server that handles API requests and serves the UI
+- **metrics_helper.py**: Helper module for collecting metrics from the Kubernetes metrics-server
+- **templates/fixed_template.html**: The dashboard UI template
 
-## Customization
+## Screenshots
 
-- Modify `fixed_template.html` to change the UI appearance
-- Adjust refresh intervals in the JavaScript code
-- Add additional metrics by extending the `/api/data` endpoint
-
-## Troubleshooting
-
-- Check the server logs for API errors
-- Verify Kubernetes permissions
-- Ensure the correct context is being used
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+![Dashboard Overview](dashboard_overview.png)
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License

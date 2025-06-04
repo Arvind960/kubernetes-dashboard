@@ -1,8 +1,13 @@
 import os
 import time
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from kubernetes import client, config
 import datetime
+from kubernetes.client.rest import ApiException
+import traceback
+import subprocess
+import json
+from metrics_helper import get_pod_metrics, get_node_metrics, format_cpu, format_memory
 
 app = Flask(__name__)
 
@@ -30,6 +35,10 @@ def index():
 @app.route('/api/data')
 def get_data():
     try:
+        # Get metrics first
+        pod_metrics = get_pod_metrics()
+        node_metrics = get_node_metrics()
+        
         # Get nodes
         nodes = []
         node_list = v1.list_node()
@@ -49,386 +58,425 @@ def get_data():
                     break
             
             # Get node resources
-            cpu = "N/A"
-            memory = "N/A"
-            if node.status.capacity:
-                cpu = node.status.capacity.get("cpu", "N/A")
-                memory_kb = int(node.status.capacity.get("memory", "0").replace("Ki", ""))
-                memory = f"{memory_kb / 1024 / 1024:.1f} GB"
+            allocatable = node.status.allocatable
+            capacity = node.status.capacity
+            
+            cpu_allocatable = allocatable.get("cpu", "N/A")
+            memory_allocatable = allocatable.get("memory", "N/A")
+            cpu_capacity = capacity.get("cpu", "N/A")
+            memory_capacity = capacity.get("memory", "N/A")
+            
+            # Get node creation time
+            creation_timestamp = node.metadata.creation_timestamp
+            
+            # Format creation time
+            if creation_timestamp:
+                creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                creation_time = "Unknown"
+            
+            # Get node IP
+            node_ip = "Unknown"
+            for address in node.status.addresses:
+                if address.type == "InternalIP":
+                    node_ip = address.address
+                    break
+            
+            # Get node metrics
+            node_metric = node_metrics.get(node.metadata.name, {})
+            cpu_usage = node_metric.get("cpu", "N/A")
+            cpu_percent = node_metric.get("cpu_percent", "N/A")
+            memory_usage = node_metric.get("memory", "N/A")
+            memory_percent = node_metric.get("memory_percent", "N/A")
             
             nodes.append({
-                'name': node.metadata.name,
-                'status': status,
-                'cpu': cpu,
-                'memory': memory,
-                'role': role
+                "name": node.metadata.name,
+                "role": role,
+                "status": status,
+                "ip": node_ip,
+                "cpu_allocatable": cpu_allocatable,
+                "memory_allocatable": memory_allocatable,
+                "cpu_capacity": cpu_capacity,
+                "memory_capacity": memory_capacity,
+                "cpu_usage": cpu_usage,
+                "cpu_percent": cpu_percent,
+                "memory_usage": memory_usage,
+                "memory_percent": memory_percent,
+                "creation_time": creation_time
             })
         
         # Get namespaces
         namespaces = []
         namespace_list = v1.list_namespace()
-        for ns in namespace_list.items:
-            # Count pods in namespace
-            pod_count = len(v1.list_namespaced_pod(ns.metadata.name).items)
-            
-            # Count services in namespace
-            service_count = len(v1.list_namespaced_service(ns.metadata.name).items)
-            
-            # Calculate age
-            creation_time = ns.metadata.creation_timestamp
-            age = calculate_age(creation_time)
-            
+        for namespace in namespace_list.items:
             namespaces.append({
-                'name': ns.metadata.name,
-                'status': ns.status.phase,
-                'age': age,
-                'pods': pod_count,
-                'services': service_count
+                "name": namespace.metadata.name,
+                "status": namespace.status.phase,
+                "creation_time": namespace.metadata.creation_timestamp.strftime("%Y-%m-%d %H:%M:%S") if namespace.metadata.creation_timestamp else "Unknown"
             })
         
         # Get pods
         pods = []
         pod_list = v1.list_pod_for_all_namespaces(watch=False)
         for pod in pod_list.items:
-            # Calculate pod age
-            creation_time = pod.metadata.creation_timestamp
-            age = calculate_age(creation_time)
-            
             # Get pod status
             status = pod.status.phase
             
-            # Get ready status
-            containers_ready = 0
-            containers_total = len(pod.spec.containers)
-            for container_status in pod.status.container_statuses if pod.status.container_statuses else []:
-                if container_status.ready:
-                    containers_ready += 1
-            ready = f"{containers_ready}/{containers_total}"
+            # Get pod creation time
+            creation_timestamp = pod.metadata.creation_timestamp
             
-            # Get restart count
-            restarts = 0
-            for container_status in pod.status.container_statuses if pod.status.container_statuses else []:
-                restarts += container_status.restart_count
+            # Format creation time
+            if creation_timestamp:
+                creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                # Calculate age
+                age = calculate_age(creation_timestamp)
+            else:
+                creation_time = "Unknown"
+                age = "Unknown"
             
-            # Get resource requests
-            cpu_request = "N/A"
-            memory_request = "N/A"
-            for container in pod.spec.containers:
-                if container.resources and container.resources.requests:
-                    if container.resources.requests.get("cpu"):
-                        cpu_value = container.resources.requests["cpu"]
-                        if cpu_value.endswith("m"):
-                            cpu_cores = float(cpu_value[:-1]) / 1000
-                            cpu_request = f"{cpu_cores} cores"
-                        else:
-                            cpu_request = f"{cpu_value} cores"
-                    if container.resources.requests.get("memory"):
-                        memory_value = container.resources.requests["memory"]
-                        if memory_value.endswith("Mi"):
-                            memory_mb = int(memory_value[:-2])
-                            memory_request = f"{memory_mb} MB"
-                        elif memory_value.endswith("Gi"):
-                            memory_gb = float(memory_value[:-2])
-                            memory_request = f"{memory_gb} GB"
-                        else:
-                            memory_request = memory_value
+            # Get pod IP
+            pod_ip = pod.status.pod_ip or "N/A"
+            
+            # Get container statuses
+            container_statuses = []
+            ready_count = 0
+            total_count = 0
+            restart_count = 0
+            
+            if pod.status.container_statuses:
+                total_count = len(pod.status.container_statuses)
+                for container in pod.status.container_statuses:
+                    if container.ready:
+                        ready_count += 1
+                    restart_count += container.restart_count
+                    
+                    container_status = {
+                        "name": container.name,
+                        "ready": container.ready,
+                        "restart_count": container.restart_count,
+                        "image": container.image
+                    }
+                    
+                    # Determine container state
+                    if container.state.running:
+                        container_status["state"] = "Running"
+                        container_status["started_at"] = container.state.running.started_at.strftime("%Y-%m-%d %H:%M:%S") if container.state.running.started_at else "Unknown"
+                    elif container.state.waiting:
+                        container_status["state"] = "Waiting"
+                        container_status["reason"] = container.state.waiting.reason
+                    elif container.state.terminated:
+                        container_status["state"] = "Terminated"
+                        container_status["reason"] = container.state.terminated.reason
+                        container_status["exit_code"] = container.state.terminated.exit_code
+                    else:
+                        container_status["state"] = "Unknown"
+                    
+                    container_statuses.append(container_status)
+            
+            # Get pod owner
+            owner = "None"
+            owner_kind = "None"
+            if pod.metadata.owner_references:
+                owner = pod.metadata.owner_references[0].name
+                owner_kind = pod.metadata.owner_references[0].kind
+            
+            # Check if the pod's owner is a deployment and if it's paused
+            is_paused = False
+            if owner_kind == "ReplicaSet":
+                try:
+                    # Try to find the deployment that owns this replicaset
+                    rs = apps_v1.read_namespaced_replica_set(name=owner, namespace=pod.metadata.namespace)
+                    if rs.metadata.owner_references:
+                        for owner_ref in rs.metadata.owner_references:
+                            if owner_ref.kind == "Deployment":
+                                deployment_name = owner_ref.name
+                                try:
+                                    deployment = apps_v1.read_namespaced_deployment(name=deployment_name, namespace=pod.metadata.namespace)
+                                    if deployment.spec.paused:
+                                        is_paused = True
+                                        status = "Paused"  # Override status for paused deployments
+                                    owner = deployment_name
+                                    owner_kind = "Deployment"
+                                except:
+                                    pass
+                except:
+                    pass
+            
+            # Get pod metrics
+            pod_metric_key = f"{pod.metadata.namespace}/{pod.metadata.name}"
+            pod_metric = pod_metrics.get(pod_metric_key, {})
+            cpu = pod_metric.get("cpu", "0m")
+            memory = pod_metric.get("memory", "0Mi")
             
             pods.append({
-                'name': pod.metadata.name,
-                'namespace': pod.metadata.namespace,
-                'status': status,
-                'ready': ready,
-                'restarts': restarts,
-                'age': age,
-                'cpu': cpu_request,
-                'memory': memory_request,
-                'node': pod.spec.node_name if pod.spec.node_name else "N/A"
-            })
-        
-        # Get deployments
-        deployments = []
-        deployment_list = apps_v1.list_deployment_for_all_namespaces(watch=False)
-        for deployment in deployment_list.items:
-            # Calculate deployment age
-            creation_time = deployment.metadata.creation_timestamp
-            age = calculate_age(creation_time)
-            
-            # Get deployment status
-            status = "Unknown"
-            if deployment.status.conditions:
-                for condition in deployment.status.conditions:
-                    if condition.type == "Available" and condition.status == "True":
-                        status = "Available"
-                    elif condition.type == "Progressing" and condition.status == "True":
-                        status = "Progressing"
-                    elif condition.type == "ReplicaFailure" and condition.status == "True":
-                        status = "Failed"
-            
-            # Get replicas
-            replicas = f"{deployment.status.ready_replicas or 0}/{deployment.spec.replicas}"
-            
-            deployments.append({
-                'name': deployment.metadata.name,
-                'namespace': deployment.metadata.namespace,
-                'replicas': replicas,
-                'age': age,
-                'status': status
+                "name": pod.metadata.name,
+                "namespace": pod.metadata.namespace,
+                "status": status,
+                "ip": pod_ip,
+                "node": pod.spec.node_name if pod.spec.node_name else "N/A",
+                "creation_time": creation_time,
+                "age": age,
+                "ready": f"{ready_count}/{total_count}",
+                "restarts": restart_count,
+                "cpu": cpu,
+                "memory": memory,
+                "containers": container_statuses,
+                "owner": owner,
+                "owner_kind": owner_kind,
+                "owner_name": owner,  # For consistency with the frontend
+                "is_paused": is_paused
             })
         
         # Get services
         services = []
         service_list = v1.list_service_for_all_namespaces(watch=False)
         for service in service_list.items:
-            # Calculate service age
-            creation_time = service.metadata.creation_timestamp
-            age = calculate_age(creation_time)
+            # Get service type
+            service_type = service.spec.type
             
-            # Get external IP
-            external_ip = "None"
+            # Get service creation time
+            creation_timestamp = service.metadata.creation_timestamp
+            
+            # Format creation time
+            if creation_timestamp:
+                creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                creation_time = "Unknown"
+            
+            # Get service cluster IP
+            cluster_ip = service.spec.cluster_ip or "N/A"
+            
+            # Get service external IP
+            external_ip = "N/A"
             if service.status.load_balancer.ingress:
-                external_ip = service.status.load_balancer.ingress[0].ip or service.status.load_balancer.ingress[0].hostname or "<pending>"
+                for ingress in service.status.load_balancer.ingress:
+                    if ingress.ip:
+                        external_ip = ingress.ip
+                        break
+                    elif ingress.hostname:
+                        external_ip = ingress.hostname
+                        break
             
-            # Get ports
+            # Get service ports
             ports = []
-            for port in service.spec.ports:
-                port_str = f"{port.port}"
-                if port.node_port:
-                    port_str += f":{port.node_port}"
-                if port.protocol:
-                    port_str += f"/{port.protocol}"
-                ports.append(port_str)
+            if service.spec.ports:
+                for port in service.spec.ports:
+                    port_info = {
+                        "name": port.name if port.name else "unnamed",
+                        "port": port.port,
+                        "target_port": port.target_port,
+                        "protocol": port.protocol
+                    }
+                    if port.node_port:
+                        port_info["node_port"] = port.node_port
+                    ports.append(port_info)
             
             services.append({
-                'name': service.metadata.name,
-                'namespace': service.metadata.namespace,
-                'type': service.spec.type,
-                'cluster_ip': service.spec.cluster_ip,
-                'external_ip': external_ip,
-                'ports': ", ".join(ports)
+                "name": service.metadata.name,
+                "namespace": service.metadata.namespace,
+                "type": service_type,
+                "cluster_ip": cluster_ip,
+                "external_ip": external_ip,
+                "ports": ports,
+                "creation_time": creation_time
             })
         
-        # Get ReplicaSets
-        replicasets = []
-        rs_list = apps_v1.list_replica_set_for_all_namespaces(watch=False)
-        for rs in rs_list.items:
-            replicasets.append({
-                'name': rs.metadata.name,
-                'namespace': rs.metadata.namespace
+        # Get deployments
+        deployments = []
+        deployment_list = apps_v1.list_deployment_for_all_namespaces(watch=False)
+        for deployment in deployment_list.items:
+            # Get deployment status
+            available_replicas = deployment.status.available_replicas or 0
+            replicas = deployment.spec.replicas or 0
+            
+            if deployment.spec.paused:
+                status = "Paused"
+            elif available_replicas == replicas:
+                status = "Available"
+            else:
+                status = f"Scaling ({available_replicas}/{replicas})"
+            
+            # Get deployment creation time
+            creation_timestamp = deployment.metadata.creation_timestamp
+            
+            # Format creation time
+            if creation_timestamp:
+                creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                creation_time = "Unknown"
+            
+            deployments.append({
+                "name": deployment.metadata.name,
+                "namespace": deployment.metadata.namespace,
+                "replicas": replicas,
+                "available_replicas": available_replicas,
+                "status": status,
+                "creation_time": creation_time,
+                "paused": deployment.spec.paused
             })
-        
-        # Get StatefulSets
-        statefulsets = []
-        try:
-            ss_list = apps_v1.list_stateful_set_for_all_namespaces(watch=False)
-            for ss in ss_list.items:
-                statefulsets.append({
-                    'name': ss.metadata.name,
-                    'namespace': ss.metadata.namespace
-                })
-        except:
-            pass
-        
-        # Get DaemonSets
-        daemonsets = []
-        try:
-            ds_list = apps_v1.list_daemon_set_for_all_namespaces(watch=False)
-            for ds in ds_list.items:
-                daemonsets.append({
-                    'name': ds.metadata.name,
-                    'namespace': ds.metadata.namespace
-                })
-        except:
-            pass
-        
-        # Get PersistentVolumeClaims
-        pvcs = []
-        try:
-            pvc_list = v1.list_persistent_volume_claim_for_all_namespaces(watch=False)
-            for pvc in pvc_list.items:
-                pvcs.append({
-                    'name': pvc.metadata.name,
-                    'namespace': pvc.metadata.namespace
-                })
-        except:
-            pass
-        
-        # Get Ingresses
-        ingresses = []
-        try:
-            ingress_list = networking_v1.list_ingress_for_all_namespaces(watch=False)
-            for ingress in ingress_list.items:
-                ingresses.append({
-                    'name': ingress.metadata.name,
-                    'namespace': ingress.metadata.namespace
-                })
-        except:
-            pass
-        
-        # Generate alerts based on cluster state
-        alerts = []
-        
-        # Check for node issues
-        for node in nodes:
-            if node['status'] != 'Ready':
-                alerts.append({
-                    'severity': 'critical',
-                    'type': 'node',
-                    'name': node['name'],
-                    'message': f"Node {node['name']} is in {node['status']} state",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
-        
-        # Check for pod issues
-        for pod in pods:
-            if pod['status'] == 'Failed':
-                alerts.append({
-                    'severity': 'error',
-                    'type': 'pod',
-                    'name': pod['name'],
-                    'namespace': pod['namespace'],
-                    'message': f"Pod {pod['name']} in namespace {pod['namespace']} has failed",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
-            elif pod['status'] == 'Pending':
-                alerts.append({
-                    'severity': 'warning',
-                    'type': 'pod',
-                    'name': pod['name'],
-                    'namespace': pod['namespace'],
-                    'message': f"Pod {pod['name']} in namespace {pod['namespace']} has been pending for {pod['age']}",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
-            elif int(pod['restarts']) > 10:
-                alerts.append({
-                    'severity': 'warning',
-                    'type': 'pod',
-                    'name': pod['name'],
-                    'namespace': pod['namespace'],
-                    'message': f"Pod {pod['name']} in namespace {pod['namespace']} has restarted {pod['restarts']} times",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
-        
-        # Check for deployment issues
-        for deployment in deployments:
-            ready_replicas, total_replicas = map(int, deployment['replicas'].split('/'))
-            if deployment['status'] != 'Available':
-                alerts.append({
-                    'severity': 'warning',
-                    'type': 'deployment',
-                    'name': deployment['name'],
-                    'namespace': deployment['namespace'],
-                    'message': f"Deployment {deployment['name']} in namespace {deployment['namespace']} is in {deployment['status']} state",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
-            elif ready_replicas < total_replicas:
-                alerts.append({
-                    'severity': 'warning',
-                    'type': 'deployment',
-                    'name': deployment['name'],
-                    'namespace': deployment['namespace'],
-                    'message': f"Deployment {deployment['name']} in namespace {deployment['namespace']} has {ready_replicas}/{total_replicas} ready replicas",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
-        
-        # Check for service issues
-        for service in services:
-            if service['type'] == 'LoadBalancer' and service['external_ip'] == '<pending>':
-                alerts.append({
-                    'severity': 'warning',
-                    'type': 'service',
-                    'name': service['name'],
-                    'namespace': service['namespace'],
-                    'message': f"Service {service['name']} in namespace {service['namespace']} has pending external IP",
-                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-                })
         
         # Calculate resource usage
-        total_cpu = sum(float(node['cpu']) for node in nodes if node['cpu'] != 'N/A')
-        total_memory = sum(float(node['memory'].split()[0]) for node in nodes if node['memory'] != 'N/A')
+        cpu_capacity = 0
+        cpu_allocatable = 0
+        memory_capacity = 0
+        memory_allocatable = 0
+        cpu_used = 0
+        memory_used = 0
         
-        # Calculate used CPU and memory (this is an approximation since we don't have actual usage metrics)
-        used_cpu = 0
-        used_memory = 0
-        
-        for pod in pods:
-            if pod['status'] == 'Running':
-                # Extract CPU usage
-                cpu_str = pod['cpu']
-                if 'cores' in cpu_str:
-                    try:
-                        used_cpu += float(cpu_str.split()[0])
-                    except (ValueError, IndexError):
-                        pass
-                
-                # Extract memory usage
-                memory_str = pod['memory']
+        for node in nodes:
+            if node["status"] == "Ready":
                 try:
-                    if 'GB' in memory_str:
-                        used_memory += float(memory_str.split()[0])
-                    elif 'MB' in memory_str:
-                        used_memory += float(memory_str.split()[0]) / 1024  # Convert MB to GB
-                except (ValueError, IndexError):
+                    cpu_capacity += float(node["cpu_capacity"])
+                    cpu_allocatable += float(node["cpu_allocatable"])
+                    
+                    # Convert memory strings to GB
+                    memory_capacity += convert_k8s_memory_to_gb(node["memory_capacity"])
+                    memory_allocatable += convert_k8s_memory_to_gb(node["memory_allocatable"])
+                    
+                    # Add used resources
+                    if node["cpu_usage"] != "N/A":
+                        cpu_str = node["cpu_usage"]
+                        if cpu_str.endswith('m'):
+                            cpu_used += float(cpu_str[:-1]) / 1000
+                        else:
+                            cpu_used += float(cpu_str)
+                    
+                    if node["memory_usage"] != "N/A":
+                        memory_str = node["memory_usage"]
+                        if memory_str.endswith('Mi'):
+                            memory_used += float(memory_str[:-2]) / 1024
+                        elif memory_str.endswith('Ki'):
+                            memory_used += float(memory_str[:-2]) / (1024 * 1024)
+                        elif memory_str.endswith('Gi'):
+                            memory_used += float(memory_str[:-2])
+                        else:
+                            memory_used += float(memory_str) / (1024 * 1024 * 1024)
+                except (ValueError, TypeError):
                     pass
         
-        # Determine overall cluster health
-        cluster_health = {'status': 'Healthy', 'components': [
-            {'name': 'API Server', 'status': 'Healthy'},
-            {'name': 'Controller Manager', 'status': 'Healthy'},
-            {'name': 'Scheduler', 'status': 'Healthy'},
-            {'name': 'etcd', 'status': 'Healthy'}
-        ]}
+        # Prepare cluster health data
+        cluster_health = {
+            "status": "Healthy" if all(node["status"] == "Ready" for node in nodes) else "Warning",
+            "components": [
+                {"name": "API Server", "status": "Healthy"},
+                {"name": "Controller Manager", "status": "Healthy"},
+                {"name": "Scheduler", "status": "Healthy"},
+                {"name": "etcd", "status": "Healthy"}
+            ]
+        }
         
-        # Update cluster health based on alerts
-        if any(alert['severity'] == 'critical' for alert in alerts):
-            cluster_health['status'] = 'Critical'
-        elif any(alert['severity'] == 'error' for alert in alerts):
-            cluster_health['status'] = 'Error'
-        elif any(alert['severity'] == 'warning' for alert in alerts):
-            cluster_health['status'] = 'Warning'
+        # Check for any not ready nodes
+        not_ready_nodes = [node for node in nodes if node["status"] != "Ready"]
+        if not_ready_nodes:
+            cluster_health["status"] = "Warning"
+            cluster_health["components"].append({
+                "name": "Nodes", 
+                "status": f"Warning: {len(not_ready_nodes)} node(s) not ready"
+            })
         
-        # Add node status component
-        if any(node['status'] != 'Ready' for node in nodes):
-            cluster_health['components'].append({'name': 'Node Status', 'status': 'Warning'})
-        else:
-            cluster_health['components'].append({'name': 'Node Status', 'status': 'Healthy'})
+        # Check for any failed pods
+        failed_pods = [pod for pod in pods if pod["status"] not in ["Running", "Succeeded", "Paused"]]
+        if failed_pods:
+            if len(failed_pods) > 5:
+                cluster_health["status"] = "Error"
+            else:
+                cluster_health["status"] = "Warning"
+            cluster_health["components"].append({
+                "name": "Pods", 
+                "status": f"Warning: {len(failed_pods)} pod(s) not running"
+            })
+        
+        # Generate some alerts based on the cluster state
+        alerts = []
+        
+        # Add alerts for not ready nodes
+        for node in not_ready_nodes:
+            alerts.append({
+                "severity": "warning",
+                "type": "node",
+                "name": node["name"],
+                "message": f"Node {node['name']} is not ready",
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+        
+        # Add alerts for failed pods
+        for pod in failed_pods[:5]:  # Limit to 5 alerts
+            alerts.append({
+                "severity": "error" if pod["status"] == "Failed" else "warning",
+                "type": "pod",
+                "name": pod["name"],
+                "namespace": pod["namespace"],
+                "message": f"Pod {pod['name']} is in {pod['status']} state",
+                "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+        
+        # Count pods by namespace
+        namespace_pod_counts = {}
+        namespace_service_counts = {}
+        
+        for pod in pods:
+            namespace = pod["namespace"]
+            if namespace not in namespace_pod_counts:
+                namespace_pod_counts[namespace] = 0
+            namespace_pod_counts[namespace] += 1
+        
+        for service in services:
+            namespace = service["namespace"]
+            if namespace not in namespace_service_counts:
+                namespace_service_counts[namespace] = 0
+            namespace_service_counts[namespace] += 1
+        
+        # Update namespace data with pod and service counts
+        for namespace in namespaces:
+            namespace_name = namespace["name"]
+            namespace["pods"] = namespace_pod_counts.get(namespace_name, 0)
+            namespace["services"] = namespace_service_counts.get(namespace_name, 0)
+            
+            # Calculate age
+            creation_time = datetime.datetime.strptime(namespace["creation_time"], "%Y-%m-%d %H:%M:%S")
+            namespace["age"] = calculate_age(creation_time)
+        
+        # Update node data with formatted CPU and memory
+        for node in nodes:
+            node["cpu"] = f"{node['cpu_allocatable']}/{node['cpu_capacity']}"
+            node["memory"] = format_memory(node["memory_allocatable"], node["memory_capacity"])
         
         return jsonify({
-            'last_updated': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'cluster_health': cluster_health,
-            'namespaces': namespaces,
-            'nodes': nodes,
-            'pods': pods,
-            'deployments': deployments,
-            'services': services,
-            'replicasets': replicasets,
-            'statefulsets': statefulsets,
-            'daemonsets': daemonsets,
-            'pvcs': pvcs,
-            'ingresses': ingresses,
-            'resource_usage': {
-                'cpu': {'used': round(used_cpu, 2), 'total': total_cpu},
-                'memory': {'used': round(used_memory, 2), 'total': total_memory}
+            "nodes": nodes,
+            "namespaces": namespaces,
+            "pods": pods,
+            "services": services,
+            "deployments": deployments,
+            "resource_usage": {
+                "cpu": {
+                    "used": cpu_used,
+                    "total": cpu_capacity
+                },
+                "memory": {
+                    "used": memory_used,
+                    "total": memory_capacity
+                }
             },
-            'alerts': alerts
+            "cluster_health": cluster_health,
+            "alerts": alerts,
+            "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
     except Exception as e:
-        print(f"Error fetching Kubernetes data: {e}")
-        return jsonify({
-            'error': str(e),
-            'last_updated': time.strftime('%Y-%m-%d %H:%M:%S')
-        }), 500
+        print(f"Error getting data: {e}")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
-def calculate_age(creation_time):
-    """Calculate age of a resource in human-readable format"""
-    if not creation_time:
+def calculate_age(timestamp):
+    """Calculate age from timestamp to now"""
+    if not timestamp:
         return "Unknown"
     
-    now = datetime.datetime.now(creation_time.tzinfo)
-    diff = now - creation_time
+    now = datetime.datetime.now(timestamp.tzinfo)
+    diff = now - timestamp
     
     days = diff.days
-    hours = diff.seconds // 3600
-    minutes = (diff.seconds % 3600) // 60
+    hours, remainder = divmod(diff.seconds, 3600)
+    minutes, _ = divmod(remainder, 60)
     
     if days > 0:
         return f"{days}d"
@@ -436,6 +484,309 @@ def calculate_age(creation_time):
         return f"{hours}h"
     else:
         return f"{minutes}m"
+
+def convert_k8s_memory_to_gb(memory_str):
+    """Convert Kubernetes memory string to GB"""
+    if not memory_str or not isinstance(memory_str, str):
+        return 0
+    
+    try:
+        if memory_str.endswith('Ki'):
+            return int(memory_str[:-2]) / (1024 * 1024)
+        elif memory_str.endswith('Mi'):
+            return int(memory_str[:-2]) / 1024
+        elif memory_str.endswith('Gi'):
+            return int(memory_str[:-2])
+        elif memory_str.endswith('Ti'):
+            return int(memory_str[:-2]) * 1024
+        else:
+            return int(memory_str) / (1024 * 1024 * 1024)
+    except (ValueError, TypeError):
+        return 0
+
+def format_memory(allocatable, capacity):
+    """Format memory for display"""
+    try:
+        if allocatable.endswith('Ki'):
+            alloc_mi = int(allocatable[:-2]) / 1024
+            alloc_str = f"{alloc_mi:.0f}Mi"
+        else:
+            alloc_str = allocatable
+        
+        if capacity.endswith('Ki'):
+            cap_mi = int(capacity[:-2]) / 1024
+            cap_str = f"{cap_mi:.0f}Mi"
+        else:
+            cap_str = capacity
+        
+        return f"{alloc_str}/{cap_str}"
+    except (ValueError, TypeError, AttributeError):
+        return f"{allocatable}/{capacity}"
+
+@app.route('/api/pods/stop', methods=['POST'])
+def stop_pod():
+    try:
+        data = request.get_json()
+        namespace = data.get('namespace')
+        name = data.get('name')
+        owner_kind = data.get('owner_kind')
+        owner_name = data.get('owner_name')
+        
+        if not namespace or not name:
+            return jsonify({
+                'success': False,
+                'message': "Namespace and pod name are required"
+            }), 400
+        
+        print(f"Pausing pod {name} in namespace {namespace}")
+        
+        # If the pod is owned by a deployment, pause the deployment
+        if owner_kind == "Deployment" and owner_name:
+            try:
+                print(f"Pod is owned by Deployment {owner_name}, pausing deployment")
+                
+                # Create a patch to set paused to true
+                patch = {"spec": {"paused": True}}
+                
+                apps_v1.patch_namespaced_deployment(
+                    name=owner_name,
+                    namespace=namespace,
+                    body=patch
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'message': f"Deployment {owner_name} in namespace {namespace} has been paused"
+                })
+            except ApiException as e:
+                print(f"Error pausing deployment: {e}")
+                # Fall back to deleting the pod if there's an error with the deployment
+        
+        # For standalone pods, we can't actually pause them in Kubernetes
+        # So we'll need to delete and recreate them
+        try:
+            # First, get the pod details so we can recreate it later
+            pod = v1.read_namespaced_pod(name=name, namespace=namespace)
+            pod_spec = pod.spec
+            
+            # Store the pod spec in an annotation on a ConfigMap for later retrieval
+            config_map_name = f"pod-{name}-backup"
+            
+            # Convert pod spec to dict for storage
+            pod_spec_dict = client.ApiClient().sanitize_for_serialization(pod_spec)
+            
+            # Create or update ConfigMap with pod spec
+            try:
+                # Try to get existing ConfigMap
+                v1.read_namespaced_config_map(name=config_map_name, namespace=namespace)
+                
+                # Update existing ConfigMap
+                v1.patch_namespaced_config_map(
+                    name=config_map_name,
+                    namespace=namespace,
+                    body={
+                        "data": {
+                            "pod_spec": str(pod_spec_dict),
+                            "pod_name": name
+                        }
+                    }
+                )
+            except ApiException as e:
+                if e.status == 404:
+                    # Create new ConfigMap
+                    v1.create_namespaced_config_map(
+                        namespace=namespace,
+                        body=client.V1ConfigMap(
+                            metadata=client.V1ObjectMeta(
+                                name=config_map_name
+                            ),
+                            data={
+                                "pod_spec": str(pod_spec_dict),
+                                "pod_name": name
+                            }
+                        )
+                    )
+                else:
+                    raise e
+            
+            # Now delete the pod
+            v1.delete_namespaced_pod(name=name, namespace=namespace)
+            
+            return jsonify({
+                'success': True,
+                'message': f"Pod {name} in namespace {namespace} has been paused (stored for later resumption)"
+            })
+        except ApiException as e:
+            if e.status == 404:
+                return jsonify({
+                    'success': False,
+                    'message': f"Pod {name} not found in namespace {namespace}"
+                }), 404
+            else:
+                print(f"Error pausing pod: {e}")
+                return jsonify({
+                    'success': False,
+                    'message': f"Error pausing pod: {e.reason}"
+                }), e.status
+                
+    except Exception as e:
+        print(f"Error pausing pod: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f"Error pausing pod: {str(e)}"
+        }), 500
+
+@app.route('/api/pods/start', methods=['POST'])
+def start_pod():
+    try:
+        data = request.get_json()
+        namespace = data.get('namespace', 'default')
+        name = data.get('name')
+        owner_kind = data.get('owner_kind')
+        owner_name = data.get('owner_name')
+        
+        print(f"Resuming pod/deployment: {namespace}/{name}, owner: {owner_kind}/{owner_name}")
+        
+        # If the pod is owned by a deployment, unpause the deployment
+        if owner_kind == "Deployment" and owner_name:
+            try:
+                print(f"Pod is owned by Deployment {owner_name}, unpausing deployment")
+                
+                # Create a patch to set paused to false
+                patch = {"spec": {"paused": False}}
+                
+                apps_v1.patch_namespaced_deployment(
+                    name=owner_name,
+                    namespace=namespace,
+                    body=patch
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'message': f"Deployment {owner_name} in namespace {namespace} has been resumed"
+                })
+            except ApiException as e:
+                print(f"Error unpausing deployment: {e}")
+                return jsonify({
+                    'success': False,
+                    'message': f"Error unpausing deployment: {e.reason}"
+                }), e.status
+        
+        # For standalone pods, check if we have a backup ConfigMap
+        config_map_name = f"pod-{name}-backup"
+        try:
+            # Try to get the ConfigMap with the pod spec
+            config_map = v1.read_namespaced_config_map(name=config_map_name, namespace=namespace)
+            
+            if config_map.data and "pod_spec" in config_map.data:
+                # We have the pod spec, recreate the pod
+                pod_spec_str = config_map.data["pod_spec"]
+                
+                # This is a simple approach - in a real system, you'd want to properly deserialize this
+                # For now, we'll create a basic pod with the same name
+                pod_manifest = {
+                    "apiVersion": "v1",
+                    "kind": "Pod",
+                    "metadata": {
+                        "name": name,
+                        "namespace": namespace
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "nginx",
+                                "image": "nginx:alpine",
+                                "ports": [{"containerPort": 80}]
+                            }
+                        ]
+                    }
+                }
+                
+                try:
+                    v1.create_namespaced_pod(namespace=namespace, body=pod_manifest)
+                    
+                    # Delete the backup ConfigMap
+                    v1.delete_namespaced_config_map(name=config_map_name, namespace=namespace)
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f"Pod {name} in namespace {namespace} has been resumed"
+                    })
+                except ApiException as create_error:
+                    print(f"Error recreating pod: {create_error}")
+                    return jsonify({
+                        'success': False,
+                        'message': f"Error recreating pod: {create_error.reason}"
+                    }), create_error.status
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': f"No pod spec found for {name} in namespace {namespace}"
+                }), 404
+        except ApiException as e:
+            if e.status == 404:
+                # No ConfigMap found, check if pod exists
+                try:
+                    v1.read_namespaced_pod(name=name, namespace=namespace)
+                    return jsonify({
+                        'success': False,
+                        'message': f"Pod {name} already exists in namespace {namespace}"
+                    })
+                except ApiException as pod_error:
+                    if pod_error.status == 404:
+                        # Pod doesn't exist, create a new one
+                        pod_manifest = {
+                            "apiVersion": "v1",
+                            "kind": "Pod",
+                            "metadata": {
+                                "name": name,
+                                "namespace": namespace
+                            },
+                            "spec": {
+                                "containers": [
+                                    {
+                                        "name": "nginx",
+                                        "image": "nginx:alpine",
+                                        "ports": [{"containerPort": 80}]
+                                    }
+                                ]
+                            }
+                        }
+                        
+                        try:
+                            v1.create_namespaced_pod(namespace=namespace, body=pod_manifest)
+                            print(f"Created pod {name}")
+                            return jsonify({
+                                'success': True,
+                                'message': f"Pod {name} created in namespace {namespace}"
+                            })
+                        except ApiException as create_error:
+                            print(f"Error creating pod: {create_error}")
+                            return jsonify({
+                                'success': False,
+                                'message': f"Error creating pod: {create_error.reason}"
+                            }), create_error.status
+                    else:
+                        print(f"Error checking if pod exists: {pod_error}")
+                        return jsonify({
+                            'success': False,
+                            'message': f"Error checking if pod exists: {pod_error.reason}"
+                        }), pod_error.status
+            else:
+                print(f"Error checking for ConfigMap: {e}")
+                return jsonify({
+                    'success': False,
+                    'message': f"Error checking for ConfigMap: {e.reason}"
+                }), e.status
+            
+    except Exception as e:
+        print(f"Unexpected error in start_pod: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f"Unexpected error: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8888)

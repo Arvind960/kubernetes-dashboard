@@ -1169,7 +1169,7 @@
                         <td><span class="${typeClass}">${service.type}</span></td>
                         <td>${service.cluster_ip}</td>
                         <td>${service.external_ip}</td>
-                        <td>${service.ports}</td>
+                        <td>${formatServicePorts(service.ports)}</td>
                     </tr>`;
                 });
             } else {
@@ -1343,6 +1343,27 @@
         });
         
         // Function to dynamically load scripts
+        // Format service ports for display
+        function formatServicePorts(ports) {
+            if (!ports || ports.length === 0) {
+                return "None";
+            }
+            
+            return ports.map(port => {
+                let portStr = `${port.port}/${port.protocol}`;
+                
+                if (port.name && port.name !== "unnamed") {
+                    portStr = `${port.name}: ${portStr}`;
+                }
+                
+                if (port.node_port) {
+                    portStr += ` (NodePort: ${port.node_port})`;
+                }
+                
+                return portStr;
+            }).join("<br>");
+        }
+        
         function loadScript(src) {
             console.log("Loading script:", src);
             const script = document.createElement('script');
