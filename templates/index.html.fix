@@ -1,0 +1,24 @@
+<script>
+    // This script will be injected into the page to fix the namespace count
+    document.addEventListener('DOMContentLoaded', function() {
+        // Override the updateUI function to ensure namespace count is updated
+        const originalUpdateUI = window.updateUI;
+        window.updateUI = function(data) {
+            // Call the original updateUI function
+            if (originalUpdateUI) {
+                originalUpdateUI(data);
+            }
+            
+            // Make sure namespace count is updated
+            if (data.namespaces && document.getElementById('namespaceCount')) {
+                document.getElementById('namespaceCount').textContent = data.namespaces.length;
+                console.log('Updated namespace count to: ' + data.namespaces.length);
+            }
+        };
+        
+        // Trigger a refresh to apply the fix
+        if (window.fetchData) {
+            window.fetchData();
+        }
+    });
+</script>

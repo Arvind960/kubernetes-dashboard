@@ -1,0 +1,429 @@
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize resource chart
+        let resourceChart;
+        let nodeRoleChart;
+        let nodeStatusChart;
+        
+        function initChart() {
+            const ctx = document.getElementById('resourceChart').getContext('2d');
+            resourceChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['CPU Used', 'CPU Available', 'Memory Used', 'Memory Available'],
+                    datasets: [{
+                        data: [0, 100, 0, 100],
+                        backgroundColor: [
+                            '#326ce5',
+                            '#e2e8f0',
+                            '#3dba8c',
+                            '#e2e8f0'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Initialize node role chart
+            const nodeRoleCtx = document.getElementById("nodeRoleChart").getContext("2d");
+            nodeRoleChart = new Chart(nodeRoleCtx, {
+                type: "pie",
+                data: {
+                    labels: ["Master Nodes", "Worker Nodes"],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: [
+                            "#326ce5",
+                            "#3dba8c"
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: "Node Roles Distribution"
+                        }
+                    }
+                }
+            });
+            
+            // Initialize node status chart
+            const nodeStatusCtx = document.getElementById("nodeStatusChart").getContext("2d");
+            nodeStatusChart = new Chart(nodeStatusCtx, {
+                type: "pie",
+                data: {
+                    labels: ["Ready", "Not Ready"],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: [
+                            "#3dba8c",
+                            "#ff6b6b"
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: "Node Status Distribution"
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update UI with data
+        function updateUI(data) {
+            // Last updated
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + data.last_updated;
+            
+            // Update pod counts
+            const runningPods = data.pods.filter(pod => pod.status === "Running").length;
+            const pendingPods = data.pods.filter(pod => pod.status === "Pending").length;
+            const failedPods = data.pods.filter(pod => pod.status !== "Running" && pod.status !== "Pending").length;
+            const totalPods = data.pods.length;
+            
+            document.getElementById("runningPodCount").textContent = runningPods;
+            document.getElementById("pendingPodCount").textContent = pendingPods;
+            document.getElementById("failedPodCount").textContent = failedPods;
+            document.getElementById("totalPodCount").textContent = totalPods;
+            
+            // Update counts
+            document.getElementById('nodeCount').textContent = data.nodes.length;
+            document.getElementById('podCount').textContent = totalPods;
+            document.getElementById('deploymentCount').textContent = data.deployments.length;
+            document.getElementById('serviceCount').textContent = data.services.length;
+            
+            // Cluster health
+            let healthHtml = '';
+            if (data.cluster_health.status === 'Healthy') {
+                healthHtml += `
+                    <div class="health-status">
+                        <div class="health-indicator healthy"></div>
+                        <div class="health-text healthy">Cluster is healthy</div>
+                    </div>`;
+            } else {
+                healthHtml += `
+                    <div class="health-status">
+                        <div class="health-indicator unhealthy"></div>
+                        <div class="health-text unhealthy">Cluster has issues</div>
+                    </div>`;
+            }
+            
+            if (data.cluster_health.components && data.cluster_health.components.length > 0) {
+                healthHtml += '<ul class="list-group list-group-flush">';
+                data.cluster_health.components.forEach(component => {
+                    const statusClass = component.status === 'Healthy' ? 'healthy' : 'unhealthy';
+                    const statusIcon = component.status === 'Healthy' ? 'fa-check-circle' : 'fa-exclamation-circle';
+                    healthHtml += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${component.name}
+                        <span class="health-text ${statusClass}"><i class="fas ${statusIcon} me-1"></i>${component.status}</span>
+                    </li>`;
+                });
+                healthHtml += '</ul>';
+            }
+            document.getElementById('clusterHealth').innerHTML = healthHtml;
+            
+            // Resource usage
+            const cpuUsed = data.resource_usage.cpu.used;
+            const cpuTotal = data.resource_usage.cpu.total;
+            const cpuPercent = cpuTotal > 0 ? (cpuUsed / cpuTotal) * 100 : 0;
+            
+            document.getElementById('cpuProgress').style.width = cpuPercent + '%';
+            document.getElementById('cpuText').textContent = `${cpuUsed.toFixed(2)}/${cpuTotal} cores (${cpuPercent.toFixed(1)}%)`;
+            
+            const memoryUsed = data.resource_usage.memory.used;
+            const memoryTotal = data.resource_usage.memory.total;
+            const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal) * 100 : 0;
+            
+            document.getElementById('memoryProgress').style.width = memoryPercent + '%';
+            document.getElementById('memoryText').textContent = `${memoryUsed.toFixed(2)}/${memoryTotal.toFixed(1)} GB (${memoryPercent.toFixed(1)}%)`;
+            
+            // Update chart
+            if (resourceChart) {
+                resourceChart.data.datasets[0].data = [
+                    cpuUsed,
+                    cpuTotal - cpuUsed,
+                    memoryUsed,
+                    memoryTotal - memoryUsed
+                ];
+                resourceChart.update();
+            }
+            
+            // Update node charts
+            if (nodeRoleChart && nodeStatusChart) {
+                // Count nodes by role
+                const masterNodes = data.nodes.filter(node => node.role === "master").length;
+                const workerNodes = data.nodes.filter(node => node.role === "worker").length;
+                
+                // Count nodes by status
+                const readyNodes = data.nodes.filter(node => node.status === "Ready").length;
+                const notReadyNodes = data.nodes.filter(node => node.status !== "Ready").length;
+                
+                // Update node role chart
+                nodeRoleChart.data.datasets[0].data = [masterNodes, workerNodes];
+                nodeRoleChart.update();
+                
+                // Update node status chart
+                nodeStatusChart.data.datasets[0].data = [readyNodes, notReadyNodes];
+                nodeStatusChart.update();
+            }
+            
+            // Nodes
+            let nodesHtml = '';
+            if (data.nodes && data.nodes.length > 0) {
+                data.nodes.forEach(node => {
+                    const statusClass = node.status === 'Ready' ? 'status-badge running' : 'status-badge failed';
+                    const statusIcon = node.status === 'Ready' ? 'fa-check-circle' : 'fa-exclamation-circle';
+                    nodesHtml += `<tr>
+                        <td class="resource-name">
+                            <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/node.svg" alt="Node">
+                            ${node.name}
+                        </td>
+                        <td><span class="badge ${node.role === 'master' ? 'bg-primary' : 'bg-secondary'}">${node.role}</span></td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${node.status}</span></td>
+                        <td>${node.cpu}</td>
+                        <td>${node.memory}</td>
+                    </tr>`;
+                });
+            } else {
+                nodesHtml = '<tr><td colspan="5" class="text-center">No nodes found</td></tr>';
+            }
+            document.getElementById('nodesTable').innerHTML = nodesHtml;
+            
+            // Update namespace filter
+            const namespaceFilter = document.getElementById('namespaceFilter');
+            const currentSelection = namespaceFilter.value;
+            
+            // Clear existing options except "All Namespaces"
+            while (namespaceFilter.options.length > 1) {
+                namespaceFilter.remove(1);
+            }
+            
+            // Add namespaces from pods
+            const namespaces = new Set();
+            if (data.pods && data.pods.length > 0) {
+                data.pods.forEach(pod => {
+                    namespaces.add(pod.namespace);
+                });
+                
+                // Sort namespaces
+                Array.from(namespaces).sort().forEach(namespace => {
+                    const option = document.createElement('option');
+                    option.value = namespace;
+                    option.textContent = namespace;
+                    namespaceFilter.appendChild(option);
+                });
+            }
+            
+            // Restore selection if possible
+            if (Array.from(namespaceFilter.options).some(option => option.value === currentSelection)) {
+                namespaceFilter.value = currentSelection;
+            }
+            
+            // Filter and display pods
+            filterAndDisplayPods(data.pods);
+            
+            // Deployments
+            let deploymentsHtml = '';
+            if (data.deployments && data.deployments.length > 0) {
+                data.deployments.forEach(deployment => {
+                    const statusClass = deployment.status === 'Available' ? 'status-badge running' : 'status-badge pending';
+                    const statusIcon = deployment.status === 'Available' ? 'fa-check-circle' : 'fa-exclamation-circle';
+                    deploymentsHtml += `<tr>
+                        <td class="resource-name">
+                            <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg" alt="Deployment">
+                            ${deployment.name}
+                        </td>
+                        <td>${deployment.namespace}</td>
+                        <td>${deployment.replicas}</td>
+                        <td>${deployment.age}</td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${deployment.status}</span></td>
+                    </tr>`;
+                });
+            } else {
+                deploymentsHtml = '<tr><td colspan="5" class="text-center">No deployments found</td></tr>';
+            }
+            document.getElementById('deploymentsTable').innerHTML = deploymentsHtml;
+            
+            // Services
+            let servicesHtml = '';
+            if (data.services && data.services.length > 0) {
+                data.services.forEach(service => {
+                    let typeClass;
+                    switch(service.type) {
+                        case 'LoadBalancer':
+                            typeClass = 'status-badge running';
+                            break;
+                        case 'NodePort':
+                            typeClass = 'status-badge pending';
+                            break;
+                        default:
+                            typeClass = 'status-badge';
+                    }
+                    
+                    servicesHtml += `<tr>
+                        <td class="resource-name">
+                            <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg" alt="Service">
+                            ${service.name}
+                        </td>
+                        <td>${service.namespace}</td>
+                        <td><span class="${typeClass}">${service.type}</span></td>
+                        <td>${service.cluster_ip}</td>
+                        <td>${service.external_ip}</td>
+                    </tr>`;
+                });
+            } else {
+                servicesHtml = '<tr><td colspan="5" class="text-center">No services found</td></tr>';
+            }
+            document.getElementById('servicesTable').innerHTML = servicesHtml;
+            
+            // Hide refresh spinner
+            document.querySelector('.refresh-spinner').style.display = 'none';
+        }
+        
+        // Filter and display pods
+        function filterAndDisplayPods(pods) {
+            const searchTerm = document.getElementById('podSearch').value.toLowerCase();
+            const namespaceFilter = document.getElementById('namespaceFilter').value;
+            
+            let filteredPods = pods;
+            
+            // Apply namespace filter
+            if (namespaceFilter !== 'all') {
+                filteredPods = filteredPods.filter(pod => pod.namespace === namespaceFilter);
+            }
+            
+            // Apply search filter
+            if (searchTerm) {
+                filteredPods = filteredPods.filter(pod => 
+                    pod.name.toLowerCase().includes(searchTerm) || 
+                    pod.namespace.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Display pods
+            let podsHtml = '';
+            if (filteredPods && filteredPods.length > 0) {
+                filteredPods.forEach(pod => {
+                    let statusClass, statusIcon;
+                    
+                    if (pod.status === 'Running') {
+                        statusClass = 'status-badge running';
+                        statusIcon = 'fa-check-circle';
+                    } else if (pod.status === 'Pending') {
+                        statusClass = 'status-badge pending';
+                        statusIcon = 'fa-clock';
+                    } else {
+                        statusClass = 'status-badge failed';
+                        statusIcon = 'fa-exclamation-circle';
+                    }
+                    
+                    podsHtml += `<tr>
+                        <td class="resource-name">
+                            <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg" alt="Pod">
+                            ${pod.name}
+                        </td>
+                        <td>${pod.namespace}</td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${pod.status}</span></td>
+                        <td>${pod.ready}</td>
+                        <td>${pod.restarts > 0 ? `<span class="status-badge failed">${pod.restarts}</span>` : '0'}</td>
+                        <td>${pod.age}</td>
+                        <td>${pod.cpu}</td>
+                        <td>${pod.memory}</td>
+                        <td>${pod.node}</td>
+                    </tr>`;
+                });
+            } else {
+                podsHtml = '<tr><td colspan="9" class="text-center">No pods found</td></tr>';
+            }
+            document.getElementById('podsTable').innerHTML = podsHtml;
+        }
+        
+        // Fetch data from API
+        function fetchData() {
+            // Show refresh spinner
+            document.querySelector('.refresh-spinner').style.display = 'inline-block';
+            
+            fetch('/api/data')
+                .then(response => response.json())
+                .then(data => {
+                    updateUI(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    document.querySelector('.refresh-spinner').style.display = 'none';
+                });
+        }
+        
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize chart
+            initChart();
+            
+            // Initial data fetch
+            fetchData();
+            
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', fetchData);
+            
+            // Pod search
+            document.getElementById('podSearch').addEventListener('input', function() {
+                fetch('/api/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        filterAndDisplayPods(data.pods);
+                    });
+            });
+            
+            // Namespace filter
+            document.getElementById('namespaceFilter').addEventListener('change', function() {
+                fetch('/api/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        filterAndDisplayPods(data.pods);
+                    });
+            });
+            
+            // Auto-refresh every 30 seconds
+            setInterval(fetchData, 30000);
+        });
+    </script>
+</body>
+</html>

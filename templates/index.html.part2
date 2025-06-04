@@ -1,0 +1,249 @@
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="https://kubernetes.io/images/kubernetes-horizontal-color.png" alt="Kubernetes">
+        </div>
+        <div class="sidebar-menu">
+            <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+            <a href="#"><i class="fas fa-server"></i> <span>Nodes</span></a>
+            <a href="#"><i class="fas fa-cubes"></i> <span>Pods</span></a>
+            <a href="#"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
+            <a href="#"><i class="fas fa-network-wired"></i> <span>Services</span></a>
+            <a href="#"><i class="fas fa-chart-line"></i> <span>Metrics</span></a>
+            <a href="#"><i class="fas fa-cog"></i> <span>Settings</span></a>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="dashboard-header">
+            <div class="dashboard-title">
+                <h1>
+                    <img src="https://kubernetes.io/images/favicon.png" alt="K8s">
+                    Kubernetes Monitoring
+                </h1>
+                <p class="mb-0 text-muted">{{ running_mode }}</p>
+            </div>
+            <div class="dashboard-actions">
+                <div class="refresh-time">
+                    <span id="lastUpdated">Last updated: Never</span>
+                </div>
+                <button id="refreshBtn" class="btn-refresh">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh</span>
+                    <i class="fas fa-spinner refresh-spinner ms-2"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-icon nodes">
+                    <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/node.svg" alt="Nodes">
+                </div>
+                <div class="stat-info">
+                    <h2 id="nodeCount" class="stat-value">0</h2>
+                    <p class="stat-label">Nodes</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon pods">
+                    <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg" alt="Pods">
+                </div>
+                <div class="stat-info">
+                    <h2 id="podCount" class="stat-value">0</h2>
+                    <p class="stat-label">Pods</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon deployments">
+                    <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg" alt="Deployments">
+                </div>
+                <div class="stat-info">
+                    <h2 id="deploymentCount" class="stat-value">0</h2>
+                    <p class="stat-label">Deployments</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon services">
+                    <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg" alt="Services">
+                </div>
+                <div class="stat-info">
+                    <h2 id="serviceCount" class="stat-value">0</h2>
+                    <p class="stat-label">Services</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-heartbeat"></i>
+                            Cluster Health
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="clusterHealth"></div>
+                        
+                        <div class="resource-usage">
+                            <h3 class="resource-title">Resource Usage</h3>
+                            
+                            <div class="resource-item">
+                                <div class="resource-header">
+                                    <span class="resource-label">CPU Usage</span>
+                                    <span id="cpuText" class="resource-value">0/0 cores (0%)</span>
+                                </div>
+                                <div class="progress">
+                                    <div id="cpuProgress" class="progress-bar cpu" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="resource-item">
+                                <div class="resource-header">
+                                    <span class="resource-label">Memory Usage</span>
+                                    <span id="memoryText" class="resource-value">0/0 GB (0%)</span>
+                                </div>
+                                <div class="progress">
+                                    <div id="memoryProgress" class="progress-bar memory" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="resourceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/node.svg" alt="Nodes">
+                            Nodes
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>CPU</th>
+                                        <th>Memory</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="nodesTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/pod.svg" alt="Pods">
+                            Pods
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="search-container">
+                            <div class="search-row">
+                                <div class="search-input">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" id="podSearch" class="form-control" placeholder="Search pods...">
+                                    </div>
+                                </div>
+                                <div class="search-select">
+                                    <select id="namespaceFilter" class="form-select">
+                                        <option value="all">All Namespaces</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Namespace</th>
+                                        <th>Status</th>
+                                        <th>Ready</th>
+                                        <th>Restarts</th>
+                                        <th>Age</th>
+                                        <th>CPU</th>
+                                        <th>Memory</th>
+                                        <th>Node</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="podsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">
+                                    <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/deploy.svg" alt="Deployments">
+                                    Deployments
+                                </h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-container">
+                                    <table class="k8s-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Namespace</th>
+                                                <th>Replicas</th>
+                                                <th>Age</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="deploymentsTable"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">
+                                    <img src="https://raw.githubusercontent.com/kubernetes/community/master/icons/svg/resources/unlabeled/svc.svg" alt="Services">
+                                    Services
+                                </h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-container">
+                                    <table class="k8s-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Namespace</th>
+                                                <th>Type</th>
+                                                <th>Cluster IP</th>
+                                                <th>External IP</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="servicesTable"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

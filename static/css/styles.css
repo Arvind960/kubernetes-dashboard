@@ -1,0 +1,215 @@
+/* Custom styles for Kubernetes Dashboard */
+
+/* Status badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-badge.running {
+    background-color: rgba(61, 186, 140, 0.15);
+    color: #3dba8c;
+}
+
+.status-badge.pending {
+    background-color: rgba(255, 190, 11, 0.15);
+    color: #ffbe0b;
+}
+
+.status-badge.failed {
+    background-color: rgba(255, 107, 107, 0.15);
+    color: #ff6b6b;
+}
+
+.status-badge.warning {
+    background-color: rgba(255, 165, 0, 0.15);
+    color: #ffa500;
+}
+
+.status-badge i {
+    margin-right: 0.25rem;
+}
+
+/* Resource name styling */
+.resource-name {
+    font-weight: 500;
+}
+
+/* Health indicators */
+.health-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.health-indicator.healthy {
+    background-color: #3dba8c;
+}
+
+.health-indicator.warning {
+    background-color: #ffbe0b;
+}
+
+.health-indicator.critical {
+    background-color: #ff6b6b;
+}
+
+.health-status {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.health-text {
+    font-weight: 500;
+}
+
+.health-text.healthy {
+    color: #3dba8c;
+}
+
+.health-text.warning {
+    color: #ffbe0b;
+}
+
+.health-text.critical {
+    color: #ff6b6b;
+}
+
+/* Alert cards */
+.alert-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid #326ce5;
+}
+
+.alert-card.critical {
+    border-left-color: #ff0000;
+}
+
+.alert-card.error {
+    border-left-color: #ff6b6b;
+}
+
+.alert-card.warning {
+    border-left-color: #ffbe0b;
+}
+
+.alert-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.alert-message {
+    margin-bottom: 0.5rem;
+}
+
+.alert-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Resource cards */
+.resource-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px rgba(50, 108, 229, 0.08);
+}
+
+.resource-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.resource-card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2a3f5f;
+    margin: 0;
+}
+
+.resource-card-body {
+    margin-bottom: 1rem;
+}
+
+.resource-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Tables */
+.k8s-table {
+    width: 100%;
+    margin-bottom: 1rem;
+    background-color: transparent;
+}
+
+.k8s-table th {
+    padding: 0.75rem;
+    vertical-align: top;
+    border-top: 1px solid #dee2e6;
+    font-weight: 600;
+    color: #2a3f5f;
+}
+
+.k8s-table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-top: 1px solid #dee2e6;
+}
+
+.k8s-table tbody tr:hover {
+    background-color: rgba(50, 108, 229, 0.03);
+}
+
+/* Progress bars */
+.progress {
+    height: 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #e9ecef;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar {
+    background-color: #326ce5;
+    border-radius: 0.25rem;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Sidebar active link */
+.sidebar-menu a.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-left-color: #3dba8c;
+}
+
+/* Custom styles for paused pods */
+.status-badge.paused {
+    background-color: rgba(255, 165, 0, 0.15);
+    color: #ffa500;
+}
+
+.status-badge.paused i {
+    color: #ffa500;
+}

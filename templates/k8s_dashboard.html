@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kubernetes Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #326ce5; /* Kubernetes blue */
+            --secondary-color: #3dba8c; /* Green */
+            --accent-color: #ff6b6b; /* Red */
+            --warning-color: #ffbe0b; /* Yellow */
+            --dark-color: #2a3f5f;
+            --light-color: #f8f9fa;
+            --border-radius: 4px;
+            --box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+        
+        body {
+            font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 240px;
+            background: #303030;
+            color: white;
+            padding-top: 0;
+            z-index: 1000;
+            transition: all 0.3s;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .sidebar-header {
+            padding: 15px;
+            background-color: #303030;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-header img {
+            height: 30px;
+            margin-right: 10px;
+        }
+        
+        .sidebar-header h3 {
+            color: white;
+            margin: 0;
+            font-size: 18px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+        }
+        
+        .sidebar-menu {
+            padding: 0;
+            list-style: none;
+            margin: 0;
+        }
+        
+        .sidebar-menu li {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+        }
+        
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border-left-color: var(--primary-color);
+        }
+        
+        .sidebar-menu a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .sidebar-menu .section-title {
+            padding: 12px 20px 5px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+        
+        .main-content {
+            margin-left: 240px;
+            padding: 0;
+            transition: all 0.3s;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+        
+        .header-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+        }
+        
+        .header-actions .btn {
+            margin-left: 10px;
+        }
+        
+        .content {
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .card {
+            background: white;
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-title i {
+            margin-right: 8px;
+            color: var(--primary-color);
+        }
+        
+        .card-body {
+            padding: 15px 20px;
+        }
+        
+        .resource-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .status-item {
+            flex: 1;
+            min-width: 120px;
+            background-color: #f8f9fa;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .status-item .count {
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .status-item .label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .resource-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .resource-table th {
+            background-color: #f8f9fa;
+            color: #666;
+            font-weight: 500;
+            font-size: 13px;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        
+        .resource-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        
+        .resource-table tr:hover {
+            background-color: rgba(50, 108, 229, 0.03);
+        }
+        
+        .resource-name {
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-badge.running {
+            background-color: rgba(61, 186, 140, 0.1);
+            color: var(--secondary-color);
+        }
+        
+        .status-badge.pending {
+            background-color: rgba(255, 190, 11, 0.1);
+            color: var(--warning-color);
+        }
+        
+        .status-badge.failed {
+            background-color: rgba(255, 107, 107, 0.1);
+            color: var(--accent-color);
+        }
+        
+        .status-badge i {
+            margin-right: 4px;
+            font-size: 10px;
+        }
+        
+        .resource-usage {
+            margin-top: 10px;
+        }
+        
+        .resource-item {
+            margin-bottom: 15px;
+        }
+        
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        
+        .resource-label {
+            color: #666;
+        }
+        
+        .resource-value {
+            font-weight: 500;
+        }
+        
+        .progress {
+            height: 6px;
+            border-radius: 3px;
+            background-color: #eee;
+            margin-bottom: 5px;
+        }
+        
+        .progress-bar {
+            border-radius: 3px;
+        }
+        
+        .progress-bar.cpu {
+            background-color: var(--primary-color);
+        }
+        
+        .progress-bar.memory {
+            background-color: var(--secondary-color);
+        }
+        
+        .workload-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .workload-item {
+            flex: 1;
+            min-width: 120px;
+            background-color: #f8f9fa;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .workload-item .count {
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .workload-item .label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .namespace-selector {
+            margin-bottom: 20px;
+        }
+        
+        .namespace-selector select {
+            width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            background-color: white;
+            font-size: 14px;
+        }
+        
+        .tab-content {
+            margin-top: 20px;
+        }
+        
+        .nav-tabs {
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .nav-tabs .nav-link {
+            border: none;
+            color: #666;
+            font-size: 14px;
+            padding: 10px 15px;
+            margin-right: 5px;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+        }
+        
+        .alert-section {
+            margin-top: 20px;
+        }
+        
+        .alert-card {
+            border-left: 4px solid;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .alert-card.critical {
+            border-left-color: #ff0000;
+        }
+        
+        .alert-card.error {
+            border-left-color: var(--accent-color);
+        }
+        
+        .alert-card.warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        .alert-title {
+            font-weight: 500;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .alert-title i {
+            margin-right: 8px;
+        }
+        
+        .alert-message {
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .alert-meta {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .refresh-time {
+            color: #666;
+            font-size: 13px;
+            margin-right: 15px;
+        }
+        
+        .btn-refresh {
+            background-color: white;
+            color: var(--primary-color);
+            border: 1px solid #ddd;
+            padding: 6px 12px;
+            border-radius: var(--border-radius);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .btn-refresh:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .btn-refresh i {
+            margin-right: 5px;
+        }
+        
+        .refresh-spinner {
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 70px;
+                overflow: hidden;
+            }
+            
+            .sidebar-header h3 span {
+                display: none;
+            }
+            
+            .sidebar-menu a span {
+                display: none;
+            }
+            
+            .sidebar-menu a i {
+                margin-right: 0;
+                font-size: 18px;
+            }
+            
+            .sidebar-menu .section-title {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 70px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .resource-status {
+                flex-direction: column;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                height: auto;
+                padding: 15px;
+            }
+            
+            .header-actions {
+                margin-top: 10px;
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h3>
+                <img src="https://kubernetes.io/images/favicon.png" alt="K8s">
+                <span>Kubernetes</span>
+            </h3>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="#" class="active"><i class="fas fa-tachometer-alt"></i> <span>Overview</span></a></li>
+            <li><a href="#"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a></li>
+            <li><a href="#"><i class="fas fa-server"></i> <span>Nodes</span></a></li>
+            
+            <li class="section-title">Workloads</li>
+            <li><a href="#"><i class="fas fa-cubes"></i> <span>Pods</span></a></li>
+            <li><a href="#"><i class="fas fa-layer-group"></i> <span>Deployments</span></a></li>
+            <li><a href="#"><i class="fas fa-clone"></i> <span>ReplicaSets</span></a></li>
+            <li><a href="#"><i class="fas fa-tasks"></i> <span>StatefulSets</span></a></li>
+            <li><a href="#"><i class="fas fa-cogs"></i> <span>DaemonSets</span></a></li>
+            <li><a href="#"><i class="fas fa-clock"></i> <span>Jobs</span></a></li>
+            <li><a href="#"><i class="fas fa-calendar"></i> <span>CronJobs</span></a></li>
+            
+            <li class="section-title">Service</li>
+            <li><a href="#"><i class="fas fa-network-wired"></i> <span>Services</span></a></li>
+            <li><a href="#"><i class="fas fa-globe"></i> <span>Ingresses</span></a></li>
+            
+            <li class="section-title">Configuration</li>
+            <li><a href="#"><i class="fas fa-database"></i> <span>ConfigMaps</span></a></li>
+            <li><a href="#"><i class="fas fa-key"></i> <span>Secrets</span></a></li>
+            
+            <li class="section-title">Storage</li>
+            <li><a href="#"><i class="fas fa-hdd"></i> <span>PersistentVolumes</span></a></li>
+            <li><a href="#"><i class="fas fa-hdd"></i> <span>PersistentVolumeClaims</span></a></li>
+            <li><a href="#"><i class="fas fa-hdd"></i> <span>StorageClasses</span></a></li>
+            
+            <li class="section-title">Cluster</li>
+            <li><a href="#"><i class="fas fa-exclamation-triangle"></i> <span>Events</span></a></li>
+            <li><a href="#"><i class="fas fa-chart-line"></i> <span>Metrics</span></a></li>
+        </ul>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <div class="header-title">
+                Overview
+            </div>
+            <div class="header-actions">
+                <div class="refresh-time">
+                    <span id="lastUpdated">Last updated: Never</span>
+                </div>
+                <button id="refreshBtn" class="btn-refresh">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh</span>
+                    <i class="fas fa-spinner refresh-spinner ms-2"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="namespace-selector">
+                <select id="namespaceFilter" class="form-select">
+                    <option value="all">All namespaces</option>
+                </select>
+            </div>
+            <!-- Cluster Overview -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-server"></i>
+                        Cluster
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="resource-status">
+                        <div class="status-item">
+                            <div class="count" id="nodeCount">0</div>
+                            <div class="label">Nodes</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="count" id="namespaceCount">0</div>
+                            <div class="label">Namespaces</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="count" id="podCount">0</div>
+                            <div class="label">Pods</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="count" id="pvcCount">0</div>
+                            <div class="label">PVCs</div>
+                        </div>
+                    </div>
+                    
+                    <div class="resource-usage mt-4">
+                        <h6>Resource Usage</h6>
+                        <div class="resource-item">
+                            <div class="resource-header">
+                                <span class="resource-label">CPU</span>
+                                <span id="cpuText" class="resource-value">0/0 cores (0%)</span>
+                            </div>
+                            <div class="progress">
+                                <div id="cpuProgress" class="progress-bar cpu" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="resource-item">
+                            <div class="resource-header">
+                                <span class="resource-label">Memory</span>
+                                <span id="memoryText" class="resource-value">0/0 GB (0%)</span>
+                            </div>
+                            <div class="progress">
+                                <div id="memoryProgress" class="progress-bar memory" role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Workloads -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-layer-group"></i>
+                        Workloads Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="workload-status">
+                        <div class="workload-item">
+                            <div class="count" id="deploymentCount">0</div>
+                            <div class="label">Deployments</div>
+                        </div>
+                        <div class="workload-item">
+                            <div class="count" id="replicaSetCount">0</div>
+                            <div class="label">ReplicaSets</div>
+                        </div>
+                        <div class="workload-item">
+                            <div class="count" id="statefulSetCount">0</div>
+                            <div class="label">StatefulSets</div>
+                        </div>
+                        <div class="workload-item">
+                            <div class="count" id="daemonSetCount">0</div>
+                            <div class="label">DaemonSets</div>
+                        </div>
+                    </div>
+                    
+                    <ul class="nav nav-tabs" id="workloadTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="deployments-tab" data-bs-toggle="tab" data-bs-target="#deployments" type="button" role="tab" aria-controls="deployments" aria-selected="true">Deployments</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pods-tab" data-bs-toggle="tab" data-bs-target="#pods" type="button" role="tab" aria-controls="pods" aria-selected="false">Pods</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="workloadTabContent">
+                        <div class="tab-pane fade show active" id="deployments" role="tabpanel" aria-labelledby="deployments-tab">
+                            <div class="table-responsive">
+                                <table class="resource-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Namespace</th>
+                                            <th>Replicas</th>
+                                            <th>Age</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="deploymentsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="pods" role="tabpanel" aria-labelledby="pods-tab">
+                            <div class="table-responsive">
+                                <table class="resource-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Namespace</th>
+                                            <th>Status</th>
+                                            <th>Restarts</th>
+                                            <th>Age</th>
+                                            <th>Node</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="podsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Services -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-network-wired"></i>
+                        Service Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="workload-status">
+                        <div class="workload-item">
+                            <div class="count" id="serviceCount">0</div>
+                            <div class="label">Services</div>
+                        </div>
+                        <div class="workload-item">
+                            <div class="count" id="ingressCount">0</div>
+                            <div class="label">Ingresses</div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-3">
+                        <table class="resource-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Namespace</th>
+                                    <th>Type</th>
+                                    <th>Cluster IP</th>
+                                    <th>External IP</th>
+                                    <th>Ports</th>
+                                </tr>
+                            </thead>
+                            <tbody id="servicesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Alerts -->
+            <div id="alerts-section" class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Alerts
+                    </h5>
+                    <span id="alertCount" class="badge bg-danger">0</span>
+                </div>
+                <div class="card-body">
+                    <div id="alertsContainer">
+                        <p class="text-center text-muted">No alerts found</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Fetch data from API
+        async function fetchData() {
+            try {
+                // Show refresh spinner
+                document.querySelector('.refresh-spinner').style.display = 'inline-block';
+                
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                updateUI(data);
+                
+                // Hide refresh spinner
+                document.querySelector('.refresh-spinner').style.display = 'none';
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                // Hide refresh spinner
+                document.querySelector('.refresh-spinner').style.display = 'none';
+            }
+        }
+        
+        // Update UI with data
+        function updateUI(data) {
+            // Last updated
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + data.last_updated;
+            
+            // Update counts
+            document.getElementById('nodeCount').textContent = data.nodes.length;
+            document.getElementById('namespaceCount').textContent = data.namespaces ? data.namespaces.length : 0;
+            document.getElementById('podCount').textContent = data.pods.length;
+            document.getElementById('pvcCount').textContent = data.pvcs ? data.pvcs.length : 0;
+            document.getElementById('deploymentCount').textContent = data.deployments.length;
+            document.getElementById('replicaSetCount').textContent = data.replicasets ? data.replicasets.length : 0;
+            document.getElementById('statefulSetCount').textContent = data.statefulsets ? data.statefulsets.length : 0;
+            document.getElementById('daemonSetCount').textContent = data.daemonsets ? data.daemonsets.length : 0;
+            document.getElementById('serviceCount').textContent = data.services.length;
+            document.getElementById('ingressCount').textContent = data.ingresses ? data.ingresses.length : 0;
+            
+            // Resource usage
+            const cpuUsed = data.resource_usage.cpu.used;
+            const cpuTotal = data.resource_usage.cpu.total;
+            const cpuPercent = cpuTotal > 0 ? (cpuUsed / cpuTotal) * 100 : 0;
+            
+            document.getElementById('cpuProgress').style.width = cpuPercent + '%';
+            document.getElementById('cpuText').textContent = `${cpuUsed.toFixed(2)}/${cpuTotal} cores (${cpuPercent.toFixed(1)}%)`;
+            
+            const memoryUsed = data.resource_usage.memory.used;
+            const memoryTotal = data.resource_usage.memory.total;
+            const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal) * 100 : 0;
+            
+            document.getElementById('memoryProgress').style.width = memoryPercent + '%';
+            document.getElementById('memoryText').textContent = `${memoryUsed.toFixed(2)}/${memoryTotal.toFixed(1)} GB (${memoryPercent.toFixed(1)}%)`;
+            
+            // Update namespace filter
+            const namespaceFilter = document.getElementById('namespaceFilter');
+            const currentSelection = namespaceFilter.value;
+            
+            // Clear existing options except "All namespaces"
+            while (namespaceFilter.options.length > 1) {
+                namespaceFilter.remove(1);
+            }
+            
+            // Add namespaces
+            if (data.namespaces && data.namespaces.length > 0) {
+                // Sort namespaces
+                const sortedNamespaces = [...data.namespaces].sort((a, b) => a.name.localeCompare(b.name));
+                
+                sortedNamespaces.forEach(namespace => {
+                    const option = document.createElement('option');
+                    option.value = namespace.name;
+                    option.textContent = namespace.name;
+                    namespaceFilter.appendChild(option);
+                });
+            }
+            
+            // Restore selection if possible
+            if (Array.from(namespaceFilter.options).some(option => option.value === currentSelection)) {
+                namespaceFilter.value = currentSelection;
+            }
+            
+            // Filter resources based on namespace
+            const selectedNamespace = namespaceFilter.value;
+            filterAndDisplayResources(data, selectedNamespace);
+            
+            // Update alerts
+            updateAlerts(data.alerts);
+        }
+        
+        // Filter and display resources based on namespace
+        function filterAndDisplayResources(data, namespace) {
+            // Filter deployments
+            let filteredDeployments = data.deployments;
+            if (namespace !== 'all') {
+                filteredDeployments = filteredDeployments.filter(deployment => deployment.namespace === namespace);
+            }
+            
+            // Display deployments
+            let deploymentsHtml = '';
+            if (filteredDeployments && filteredDeployments.length > 0) {
+                filteredDeployments.forEach(deployment => {
+                    let statusClass, statusIcon;
+                    
+                    if (deployment.status === 'Available') {
+                        statusClass = 'status-badge running';
+                        statusIcon = 'fa-check-circle';
+                    } else if (deployment.status === 'Progressing') {
+                        statusClass = 'status-badge pending';
+                        statusIcon = 'fa-clock';
+                    } else {
+                        statusClass = 'status-badge failed';
+                        statusIcon = 'fa-exclamation-circle';
+                    }
+                    
+                    deploymentsHtml += `<tr>
+                        <td class="resource-name">${deployment.name}</td>
+                        <td>${deployment.namespace}</td>
+                        <td>${deployment.replicas}</td>
+                        <td>${deployment.age}</td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${deployment.status}</span></td>
+                    </tr>`;
+                });
+            } else {
+                deploymentsHtml = '<tr><td colspan="5" class="text-center">No deployments found</td></tr>';
+            }
+            document.getElementById('deploymentsTable').innerHTML = deploymentsHtml;
+            
+            // Filter pods
+            let filteredPods = data.pods;
+            if (namespace !== 'all') {
+                filteredPods = filteredPods.filter(pod => pod.namespace === namespace);
+            }
+            
+            // Display pods
+            let podsHtml = '';
+            if (filteredPods && filteredPods.length > 0) {
+                filteredPods.forEach(pod => {
+                    let statusClass, statusIcon;
+                    
+                    if (pod.status === 'Running') {
+                        statusClass = 'status-badge running';
+                        statusIcon = 'fa-check-circle';
+                    } else if (pod.status === 'Pending') {
+                        statusClass = 'status-badge pending';
+                        statusIcon = 'fa-clock';
+                    } else {
+                        statusClass = 'status-badge failed';
+                        statusIcon = 'fa-exclamation-circle';
+                    }
+                    
+                    podsHtml += `<tr>
+                        <td class="resource-name">${pod.name}</td>
+                        <td>${pod.namespace}</td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${pod.status}</span></td>
+                        <td>${pod.restarts}</td>
+                        <td>${pod.age}</td>
+                        <td>${pod.node}</td>
+                    </tr>`;
+                });
+            } else {
+                podsHtml = '<tr><td colspan="6" class="text-center">No pods found</td></tr>';
+            }
+            document.getElementById('podsTable').innerHTML = podsHtml;
+            
+            // Filter services
+            let filteredServices = data.services;
+            if (namespace !== 'all') {
+                filteredServices = filteredServices.filter(service => service.namespace === namespace);
+            }
+            
+            // Display services
+            let servicesHtml = '';
+            if (filteredServices && filteredServices.length > 0) {
+                filteredServices.forEach(service => {
+                    let typeClass;
+                    switch(service.type) {
+                        case 'LoadBalancer':
+                            typeClass = 'status-badge running';
+                            break;
+                        case 'NodePort':
+                            typeClass = 'status-badge pending';
+                            break;
+                        default:
+                            typeClass = 'status-badge';
+                    }
+                    
+                    servicesHtml += `<tr>
+                        <td class="resource-name">${service.name}</td>
+                        <td>${service.namespace}</td>
+                        <td><span class="${typeClass}">${service.type}</span></td>
+                        <td>${service.cluster_ip}</td>
+                        <td>${service.external_ip}</td>
+                        <td>${service.ports}</td>
+                    </tr>`;
+                });
+            } else {
+                servicesHtml = '<tr><td colspan="6" class="text-center">No services found</td></tr>';
+            }
+            document.getElementById('servicesTable').innerHTML = servicesHtml;
+        }
+        
+        // Update alerts section
+        function updateAlerts(alerts) {
+            const alertsContainer = document.getElementById('alertsContainer');
+            const alertCount = document.getElementById('alertCount');
+            
+            if (alerts && alerts.length > 0) {
+                alertCount.textContent = alerts.length;
+                
+                let alertsHtml = '';
+                alerts.forEach(alert => {
+                    let iconClass, iconColor;
+                    
+                    switch(alert.severity) {
+                        case 'critical':
+                            iconClass = 'fa-times-circle';
+                            iconColor = '#ff0000';
+                            break;
+                        case 'error':
+                            iconClass = 'fa-exclamation-circle';
+                            iconColor = '#ff6b6b';
+                            break;
+                        case 'warning':
+                            iconClass = 'fa-exclamation-triangle';
+                            iconColor = '#ffbe0b';
+                            break;
+                        default:
+                            iconClass = 'fa-info-circle';
+                            iconColor = '#326ce5';
+                    }
+                    
+                    alertsHtml += `
+                        <div class="alert-card ${alert.severity}">
+                            <div class="alert-title">
+                                <i class="fas ${iconClass}" style="color: ${iconColor};"></i>
+                                ${alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert: ${alert.name}
+                            </div>
+                            <div class="alert-message">${alert.message}</div>
+                            <div class="alert-meta">
+                                <span>${alert.namespace ? `Namespace: ${alert.namespace}` : ''}</span>
+                                <span>${alert.timestamp}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                alertsContainer.innerHTML = alertsHtml;
+            } else {
+                alertCount.textContent = '0';
+                alertsContainer.innerHTML = '<p class="text-center text-muted">No alerts found</p>';
+            }
+        }
+        
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial data fetch
+            fetchData();
+            
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', fetchData);
+            
+            // Namespace filter
+            document.getElementById('namespaceFilter').addEventListener('change', function() {
+                fetch('/api/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        filterAndDisplayResources(data, this.value);
+                    });
+            });
+            
+            // Auto-refresh every 30 seconds
+            setInterval(fetchData, 30000);
+        });
+    </script>
+</body>
+</html>

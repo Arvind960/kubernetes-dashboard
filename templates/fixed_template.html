@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kubernetes Monitoring Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        :root {
+            --primary-color: #326ce5; /* Kubernetes blue */
+            --secondary-color: #3dba8c; /* SolarWinds green */
+            --accent-color: #ff6b6b;
+            --warning-color: #ffbe0b;
+            --dark-color: #2a3f5f;
+            --light-color: #f8f9fa;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(50, 108, 229, 0.08);
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 240px;
+            background: var(--dark-color);
+            color: white;
+            padding-top: 20px;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+        
+        .sidebar-header {
+            padding: 0 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+        
+        .sidebar-header img {
+            max-width: 80%;
+            height: auto;
+        }
+        
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border-left-color: var(--primary-color);
+        }
+        
+        .sidebar-menu a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        
+        .dashboard-header {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .dashboard-title h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .dashboard-title h1 img {
+            height: 32px;
+            margin-right: 10px;
+        }
+        
+        .dashboard-actions {
+            display: flex;
+            align-items: center;
+        }
+        
+        .refresh-time {
+            margin-right: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .btn-refresh {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .btn-refresh:hover {
+            background-color: #2857b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-refresh i {
+            margin-right: 8px;
+        }
+        
+        .refresh-spinner {
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(50, 108, 229, 0.12);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(50, 108, 229, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+        }
+        
+        .stat-icon img {
+            width: 32px;
+            height: 32px;
+        }
+        
+        .stat-icon.nodes {
+            background: rgba(50, 108, 229, 0.1);
+        }
+        
+        .stat-icon.pods {
+            background: rgba(61, 186, 140, 0.1);
+        }
+        
+        .stat-icon.deployments {
+            background: rgba(255, 107, 107, 0.1);
+        }
+        
+        .stat-icon.services {
+            background: rgba(255, 190, 11, 0.1);
+        }
+        
+        .stat-icon.namespaces {
+            background: rgba(153, 102, 255, 0.1);
+        }
+        
+        .stat-info {
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.2;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .card {
+            background: white;
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #eee;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-title img {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .health-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .health-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .health-indicator.healthy {
+            background-color: var(--secondary-color);
+        }
+        
+        .health-indicator.warning {
+            background-color: var(--warning-color);
+        }
+        
+        .health-indicator.error {
+            background-color: var(--accent-color);
+        }
+        
+        .health-indicator.critical {
+            background-color: #ff0000;
+        }
+        
+        .health-text {
+            font-weight: 500;
+        }
+        
+        .health-text.healthy {
+            color: var(--secondary-color);
+        }
+        
+        .health-text.warning {
+            color: var(--warning-color);
+        }
+        
+        .health-text.error {
+            color: var(--accent-color);
+        }
+        
+        .health-text.critical {
+            color: #ff0000;
+        }
+        
+        .resource-usage {
+            margin-top: 20px;
+        }
+        
+        .resource-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--dark-color);
+        }
+        
+        .resource-item {
+            margin-bottom: 15px;
+        }
+        
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .resource-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .resource-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #eee;
+            margin-bottom: 5px;
+        }
+        
+        .progress-bar {
+            border-radius: 4px;
+        }
+        
+        .progress-bar.cpu {
+            background-color: var(--primary-color);
+        }
+        
+        .progress-bar.memory {
+            background-color: var(--secondary-color);
+        }
+        
+        .chart-container {
+            height: 250px;
+            margin-top: 20px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        .k8s-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .k8s-table th {
+            background-color: #f8f9fa;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            padding: 12px 15px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .k8s-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+        }
+        
+        .k8s-table tbody tr:hover {
+            background-color: rgba(50, 108, 229, 0.03);
+        }
+        
+        .k8s-table .resource-name {
+            font-weight: 500;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .k8s-table .resource-name img {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-badge.running {
+            background-color: rgba(61, 186, 140, 0.1);
+            color: var(--secondary-color);
+        }
+        
+        .status-badge.pending {
+            background-color: rgba(255, 190, 11, 0.1);
+            color: var(--warning-color);
+        }
+        
+        .status-badge.failed {
+            background-color: rgba(255, 107, 107, 0.1);
+            color: var(--accent-color);
+        }
+        
+        .search-container {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .search-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .search-select {
+            width: 200px;
+        }
+        
+        .form-control, .form-select {
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            padding: 8px 12px;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(50, 108, 229, 0.25);
+        }
+        
+        .input-group-text {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-right: none;
+        }
+        
+        .alert-card {
+            border-left: 4px solid;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .alert-card.critical {
+            border-left-color: #ff0000;
+        }
+        
+        .alert-card.error {
+            border-left-color: var(--accent-color);
+        }
+        
+        .alert-card.warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .alert-title i {
+            margin-right: 8px;
+        }
+        
+        .alert-message {
+            margin-bottom: 5px;
+            color: #666;
+        }
+        
+        .alert-meta {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 70px;
+                overflow: hidden;
+            }
+            
+            .sidebar-header {
+                padding: 10px;
+            }
+            
+            .sidebar-menu a span {
+                display: none;
+            }
+            
+            .sidebar-menu a i {
+                margin-right: 0;
+                font-size: 18px;
+            }
+            
+            .main-content {
+                margin-left: 70px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: repeat(auto-fit, minmax(100%, 1fr));
+            }
+            
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .dashboard-actions {
+                margin-top: 15px;
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+    <script src="/static/js/pod-actions.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <img src="https://kubernetes.io/images/kubernetes-horizontal-color.png" alt="Kubernetes">
+        </div>
+        <div class="sidebar-menu">
+            <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+            <a href="#nodes-section"><i class="fas fa-server"></i> <span>Nodes</span></a>
+            <a href="#pods-section"><i class="fas fa-cubes"></i> <span>Pods</span></a>
+            <a href="#deployments-section"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
+            <a href="#services-section"><i class="fas fa-network-wired"></i> <span>Services</span></a>
+            <a href="#namespaces-section"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
+            <a href="#alerts-section"><i class="fas fa-exclamation-triangle"></i> <span>Alerts</span></a>
+        </div>
+    </div>
+    
+    <div class="main-content">
+        <div class="dashboard-header">
+            <div class="dashboard-title">
+                <h1>
+                    <img src="https://kubernetes.io/images/favicon.png" alt="K8s">
+                    Kubernetes Monitoring
+                </h1>
+                <p class="mb-0 text-muted">{{ running_mode }}</p>
+            </div>
+            <div class="dashboard-actions">
+                <div class="refresh-time">
+                    <span id="lastUpdated">Last updated: Never</span>
+                </div>
+                <button id="refreshBtn" class="btn-refresh">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Refresh</span>
+                    <i class="fas fa-spinner refresh-spinner ms-2"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Cluster Overview -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-heartbeat"></i>
+                            Cluster Health
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="clusterHealth"></div>
+                        
+                        <div class="resource-usage">
+                            <h3 class="resource-title">Resource Usage</h3>
+                            
+                            <div class="resource-item">
+                                <div class="resource-header">
+                                    <span class="resource-label">CPU Usage</span>
+                                    <span id="cpuText" class="resource-value">0/0 cores (0%)</span>
+                                </div>
+                                <div class="progress">
+                                    <div id="cpuProgress" class="progress-bar cpu" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="resource-item">
+                                <div class="resource-header">
+                                    <span class="resource-label">Memory Usage</span>
+                                    <span id="memoryText" class="resource-value">0/0 GB (0%)</span>
+                                </div>
+                                <div class="progress">
+                                    <div id="memoryProgress" class="progress-bar memory" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stats Overview -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-icon nodes">
+                    <i class="fas fa-server" style="color: #326ce5;"></i>
+                </div>
+                <div class="stat-info">
+                    <h2 id="nodeCount" class="stat-value">0</h2>
+                    <p class="stat-label">Nodes</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon pods">
+                    <i class="fas fa-cubes" style="color: #3dba8c;"></i>
+                </div>
+                <div class="stat-info">
+                    <h2 id="podCount" class="stat-value">0</h2>
+                    <p class="stat-label">Pods</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon deployments">
+                    <i class="fas fa-layer-group" style="color: #ff6b6b;"></i>
+                </div>
+                <div class="stat-info">
+                    <h2 id="deploymentCount" class="stat-value">0</h2>
+                    <p class="stat-label">Deployments</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon services">
+                    <i class="fas fa-network-wired" style="color: #ffbe0b;"></i>
+                </div>
+                <div class="stat-info">
+                    <h2 id="serviceCount" class="stat-value">0</h2>
+                    <p class="stat-label">Services</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon namespaces">
+                    <i class="fas fa-project-diagram" style="color: #9966ff;"></i>
+                </div>
+                <div class="stat-info">
+                    <h2 id="namespaceCount" class="stat-value">0</h2>
+                    <p class="stat-label">Namespaces</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pod Status Overview -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-cubes"></i>
+                            Pod Status Overview
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-icon" style="background: rgba(61, 186, 140, 0.1);">
+                                        <i class="fas fa-check-circle" style="color: #3dba8c;"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h2 id="runningPodCount" class="stat-value">0</h2>
+                                        <p class="stat-label">Running Pods</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-icon" style="background: rgba(255, 190, 11, 0.1);">
+                                        <i class="fas fa-clock" style="color: #ffbe0b;"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h2 id="pendingPodCount" class="stat-value">0</h2>
+                                        <p class="stat-label">Pending Pods</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-icon" style="background: rgba(255, 107, 107, 0.1);">
+                                        <i class="fas fa-exclamation-circle" style="color: #ff6b6b;"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h2 id="failedPodCount" class="stat-value">0</h2>
+                                        <p class="stat-label">Failed Pods</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Namespace Overview -->
+        <div id="namespaces-section" class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-project-diagram"></i>
+                            Namespace Overview
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>Age</th>
+                                        <th>Pods</th>
+                                        <th>Services</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="namespacesTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Node Overview -->
+        <div id="nodes-section" class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-server"></i>
+                            Node Overview
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>CPU</th>
+                                        <th>Memory</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="nodesTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Pods Section -->
+        <div id="pods-section" class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-cubes"></i>
+                            Pods
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="search-container">
+                            <div class="search-row">
+                                <div class="search-input">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" id="podSearch" class="form-control" placeholder="Search pods...">
+                                    </div>
+                                </div>
+                                <div class="search-select">
+                                    <select id="namespaceFilter" class="form-select">
+                                        <option value="all">All Namespaces</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Namespace</th>
+                                        <th>Status</th>
+                                        <th>Ready</th>
+                                        <th>Restarts</th>
+                                        <th>Age</th>
+                                        <th>CPU</th>
+                                        <th>Memory</th>
+                                        <th>Node</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="podsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Deployments Section -->
+        <div id="deployments-section" class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-layer-group"></i>
+                            Deployments
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Namespace</th>
+                                        <th>Replicas</th>
+                                        <th>Age</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="deploymentsTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Services Section -->
+        <div id="services-section" class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-network-wired"></i>
+                            Services
+                        </h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="k8s-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Namespace</th>
+                                        <th>Type</th>
+                                        <th>Cluster IP</th>
+                                        <th>External IP</th>
+                                        <th>Ports</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="servicesTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alerts Section - NOW AT THE BOTTOM -->
+        <div id="alerts-section" class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Alerts
+                        </h2>
+                        <span id="alertCount" class="badge bg-danger">0</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="alertsContainer">
+                            <p class="text-center text-muted">No alerts found</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Fetch data from API
+        async function fetchData() {
+            try {
+                // Show refresh spinner
+                document.querySelector('.refresh-spinner').style.display = 'inline-block';
+                
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                updateUI(data);
+                
+                // Hide refresh spinner
+                document.querySelector('.refresh-spinner').style.display = 'none';
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                // Hide refresh spinner
+                document.querySelector('.refresh-spinner').style.display = 'none';
+            }
+        }
+        
+        // Update UI with data
+        function updateUI(data) {
+            console.log("Updating UI with data:", data);
+            
+            // Last updated
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + data.last_updated;
+            
+            // Update pod counts
+            const runningPods = data.pods ? data.pods.filter(pod => pod.status === "Running").length : 0;
+            const pendingPods = data.pods ? data.pods.filter(pod => pod.status === "Pending").length : 0;
+            const failedPods = data.pods ? data.pods.filter(pod => pod.status !== "Running" && pod.status !== "Pending").length : 0;
+            const totalPods = data.pods ? data.pods.length : 0;
+            
+            document.getElementById("runningPodCount").textContent = runningPods;
+            document.getElementById("pendingPodCount").textContent = pendingPods;
+            document.getElementById("failedPodCount").textContent = failedPods;
+            
+            // Update counts
+            document.getElementById('nodeCount').textContent = data.nodes ? data.nodes.length : 0;
+            document.getElementById('podCount').textContent = totalPods;
+            document.getElementById('deploymentCount').textContent = data.deployments ? data.deployments.length : 0;
+            document.getElementById('serviceCount').textContent = data.services ? data.services.length : 0;
+            document.getElementById('namespaceCount').textContent = data.namespaces ? data.namespaces.length : 0;
+            
+            // Cluster health
+            let healthHtml = '';
+            let healthClass = '';
+            let healthIcon = '';
+            
+            switch(data.cluster_health.status) {
+                case 'Critical':
+                    healthClass = 'critical';
+                    healthIcon = 'fa-times-circle';
+                    break;
+                case 'Error':
+                    healthClass = 'error';
+                    healthIcon = 'fa-exclamation-circle';
+                    break;
+                case 'Warning':
+                    healthClass = 'warning';
+                    healthIcon = 'fa-exclamation-triangle';
+                    break;
+                default:
+                    healthClass = 'healthy';
+                    healthIcon = 'fa-check-circle';
+            }
+            
+            healthHtml += `
+                <div class="health-status">
+                    <div class="health-indicator ${healthClass}"></div>
+                    <div class="health-text ${healthClass}">Cluster is ${data.cluster_health.status.toLowerCase()}</div>
+                </div>`;
+            
+            if (data.cluster_health.components && data.cluster_health.components.length > 0) {
+                healthHtml += '<ul class="list-group list-group-flush">';
+                data.cluster_health.components.forEach(component => {
+                    const componentClass = component.status === 'Healthy' ? 'healthy' : 'warning';
+                    const componentIcon = component.status === 'Healthy' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+                    healthHtml += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${component.name}
+                        <span class="health-text ${componentClass}"><i class="fas ${componentIcon} me-1"></i>${component.status}</span>
+                    </li>`;
+                });
+                healthHtml += '</ul>';
+            }
+            document.getElementById('clusterHealth').innerHTML = healthHtml;
+            
+            // Resource usage
+            const cpuUsed = data.resource_usage.cpu.used;
+            const cpuTotal = data.resource_usage.cpu.total;
+            const cpuPercent = cpuTotal > 0 ? (cpuUsed / cpuTotal) * 100 : 0;
+            
+            document.getElementById('cpuProgress').style.width = cpuPercent + '%';
+            document.getElementById('cpuText').textContent = `${cpuUsed.toFixed(2)}/${cpuTotal} cores (${cpuPercent.toFixed(1)}%)`;
+            
+            const memoryUsed = data.resource_usage.memory.used;
+            const memoryTotal = data.resource_usage.memory.total;
+            const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal) * 100 : 0;
+            
+            document.getElementById('memoryProgress').style.width = memoryPercent + '%';
+            document.getElementById('memoryText').textContent = `${memoryUsed.toFixed(2)}/${memoryTotal.toFixed(1)} GB (${memoryPercent.toFixed(1)}%)`;
+            
+            // Namespaces
+            let namespacesHtml = '';
+            if (data.namespaces && data.namespaces.length > 0) {
+                data.namespaces.forEach(namespace => {
+                    namespacesHtml += `<tr>
+                        <td class="resource-name">
+                            <i class="fas fa-project-diagram me-2" style="color: #9966ff;"></i>
+                            ${namespace.name}
+                        </td>
+                        <td><span class="status-badge running">${namespace.status}</span></td>
+                        <td>${namespace.age}</td>
+                        <td>${namespace.pods}</td>
+                        <td>${namespace.services}</td>
+                    </tr>`;
+                });
+            } else {
+                namespacesHtml = '<tr><td colspan="5" class="text-center">No namespaces found</td></tr>';
+            }
+            document.getElementById('namespacesTable').innerHTML = namespacesHtml;
+            
+            // Nodes
+            let nodesHtml = '';
+            if (data.nodes && data.nodes.length > 0) {
+                data.nodes.forEach(node => {
+                    const statusClass = node.status === 'Ready' ? 'status-badge running' : 'status-badge failed';
+                    const statusIcon = node.status === 'Ready' ? 'fa-check-circle' : 'fa-exclamation-circle';
+                    nodesHtml += `<tr>
+                        <td class="resource-name">
+                            <i class="fas fa-server me-2" style="color: #326ce5;"></i>
+                            ${node.name}
+                        </td>
+                        <td><span class="badge ${node.role === 'master' ? 'bg-primary' : 'bg-secondary'}">${node.role}</span></td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${node.status}</span></td>
+                        <td>${node.cpu}</td>
+                        <td>${node.memory}</td>
+                    </tr>`;
+                });
+            } else {
+                nodesHtml = '<tr><td colspan="5" class="text-center">No nodes found</td></tr>';
+            }
+            document.getElementById('nodesTable').innerHTML = nodesHtml;
+            
+            // Update namespace filter
+            const namespaceFilter = document.getElementById('namespaceFilter');
+            const currentSelection = namespaceFilter.value;
+            
+            // Clear existing options except "All Namespaces"
+            while (namespaceFilter.options.length > 1) {
+                namespaceFilter.remove(1);
+            }
+            
+            // Add namespaces from pods
+            const namespaces = new Set();
+            if (data.pods && data.pods.length > 0) {
+                data.pods.forEach(pod => {
+                    namespaces.add(pod.namespace);
+                });
+                
+                // Sort namespaces
+                Array.from(namespaces).sort().forEach(namespace => {
+                    const option = document.createElement('option');
+                    option.value = namespace;
+                    option.textContent = namespace;
+                    namespaceFilter.appendChild(option);
+                });
+            }
+            
+            // Restore selection if possible
+            if (Array.from(namespaceFilter.options).some(option => option.value === currentSelection)) {
+                namespaceFilter.value = currentSelection;
+            }
+            
+            // Filter and display pods
+            filterAndDisplayPods(data.pods);
+            
+            // Deployments
+            let deploymentsHtml = '';
+            if (data.deployments && data.deployments.length > 0) {
+                data.deployments.forEach(deployment => {
+                    let statusClass, statusIcon;
+                    
+                    if (deployment.status === 'Available') {
+                        statusClass = 'status-badge running';
+                        statusIcon = 'fa-check-circle';
+                    } else if (deployment.status === 'Progressing') {
+                        statusClass = 'status-badge pending';
+                        statusIcon = 'fa-clock';
+                    } else {
+                        statusClass = 'status-badge failed';
+                        statusIcon = 'fa-exclamation-circle';
+                    }
+                    
+                    deploymentsHtml += `<tr>
+                        <td class="resource-name">
+                            <i class="fas fa-layer-group me-2" style="color: #ff6b6b;"></i>
+                            ${deployment.name}
+                        </td>
+                        <td>${deployment.namespace}</td>
+                        <td>${deployment.replicas}</td>
+                        <td>${deployment.age}</td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${deployment.status}</span></td>
+                    </tr>`;
+                });
+            } else {
+                deploymentsHtml = '<tr><td colspan="5" class="text-center">No deployments found</td></tr>';
+            }
+            document.getElementById('deploymentsTable').innerHTML = deploymentsHtml;
+            
+            // Services
+            let servicesHtml = '';
+            if (data.services && data.services.length > 0) {
+                data.services.forEach(service => {
+                    let typeClass;
+                    switch(service.type) {
+                        case 'LoadBalancer':
+                            typeClass = 'status-badge running';
+                            break;
+                        case 'NodePort':
+                            typeClass = 'status-badge pending';
+                            break;
+                        default:
+                            typeClass = 'status-badge';
+                    }
+                    
+                    servicesHtml += `<tr>
+                        <td class="resource-name">
+                            <i class="fas fa-network-wired me-2" style="color: #ffbe0b;"></i>
+                            ${service.name}
+                        </td>
+                        <td>${service.namespace}</td>
+                        <td><span class="${typeClass}">${service.type}</span></td>
+                        <td>${service.cluster_ip}</td>
+                        <td>${service.external_ip}</td>
+                        <td>${service.ports}</td>
+                    </tr>`;
+                });
+            } else {
+                servicesHtml = '<tr><td colspan="6" class="text-center">No services found</td></tr>';
+            }
+            document.getElementById('servicesTable').innerHTML = servicesHtml;
+            
+            // Alerts
+            updateAlerts(data.alerts);
+        }
+        
+        // Filter and display pods
+        function filterAndDisplayPods(pods) {
+            const searchTerm = document.getElementById('podSearch').value.toLowerCase();
+            const namespaceFilter = document.getElementById('namespaceFilter').value;
+            
+            let filteredPods = pods;
+            
+            // Apply namespace filter
+            if (namespaceFilter !== 'all') {
+                filteredPods = filteredPods.filter(pod => pod.namespace === namespaceFilter);
+            }
+            
+            // Apply search filter
+            if (searchTerm) {
+                filteredPods = filteredPods.filter(pod => 
+                    pod.name.toLowerCase().includes(searchTerm) || 
+                    pod.namespace.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // Display pods
+            let podsHtml = '';
+            if (filteredPods && filteredPods.length > 0) {
+                filteredPods.forEach(pod => {
+                    let statusClass, statusIcon;
+                    
+                    if (pod.status === 'Running') {
+                        statusClass = 'status-badge running';
+                        statusIcon = 'fa-check-circle';
+                    } else if (pod.status === 'Pending') {
+                        statusClass = 'status-badge pending';
+                        statusIcon = 'fa-clock';
+                    } else if (pod.status === 'Paused') {
+                        statusClass = 'status-badge warning';
+                        statusIcon = 'fa-pause-circle';
+                    } else {
+                        statusClass = 'status-badge failed';
+                        statusIcon = 'fa-exclamation-circle';
+                    }
+                    
+                    podsHtml += `<tr>
+                        <td class="resource-name">
+                            <i class="fas fa-cube me-2" style="color: #3dba8c;"></i>
+                            ${pod.name}
+                        </td>
+                        <td>${pod.namespace}</td>
+                        <td><span class="${statusClass}"><i class="fas ${statusIcon}"></i> ${pod.status}</span></td>
+                        <td>${pod.ready}</td>
+                        <td>${pod.restarts > 0 ? `<span class="status-badge failed">${pod.restarts}</span>` : '0'}</td>
+                        <td>${pod.age}</td>
+                        <td>${pod.cpu}</td>
+                        <td>${pod.memory}</td>
+                        <td>${pod.node}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-success" onclick="startPod('${pod.namespace}', '${pod.name}', '${pod.owner_kind || ''}', '${pod.owner_name || ''}')">
+                                <i class="fas fa-play"></i> Resume
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="stopPod('${pod.namespace}', '${pod.name}', '${pod.owner_kind || ''}', '${pod.owner_name || ''}')">
+                                <i class="fas fa-pause"></i> Pause
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+            } else {
+                podsHtml = '<tr><td colspan="10" class="text-center">No pods found</td></tr>';
+            }
+            document.getElementById('podsTable').innerHTML = podsHtml;
+        }
+        
+        // Update alerts section
+        function updateAlerts(alerts) {
+            const alertsContainer = document.getElementById('alertsContainer');
+            const alertCount = document.getElementById('alertCount');
+            
+            if (alerts && alerts.length > 0) {
+                alertCount.textContent = alerts.length;
+                
+                let alertsHtml = '';
+                alerts.forEach(alert => {
+                    let iconClass, iconColor;
+                    
+                    switch(alert.severity) {
+                        case 'critical':
+                            iconClass = 'fa-times-circle';
+                            iconColor = '#ff0000';
+                            break;
+                        case 'error':
+                            iconClass = 'fa-exclamation-circle';
+                            iconColor = '#ff6b6b';
+                            break;
+                        case 'warning':
+                            iconClass = 'fa-exclamation-triangle';
+                            iconColor = '#ffbe0b';
+                            break;
+                        default:
+                            iconClass = 'fa-info-circle';
+                            iconColor = '#326ce5';
+                    }
+                    
+                    alertsHtml += `
+                        <div class="alert-card ${alert.severity}">
+                            <div class="alert-title">
+                                <i class="fas ${iconClass}" style="color: ${iconColor};"></i>
+                                ${alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert: ${alert.name}
+                            </div>
+                            <div class="alert-message">${alert.message}</div>
+                            <div class="alert-meta">
+                                <span>${alert.namespace ? `Namespace: ${alert.namespace}` : ''}</span>
+                                <span>${alert.timestamp}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                alertsContainer.innerHTML = alertsHtml;
+            } else {
+                alertCount.textContent = '0';
+                alertsContainer.innerHTML = '<p class="text-center text-muted">No alerts found</p>';
+            }
+        }
+        
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial data fetch
+            fetchData();
+            
+            // Refresh button
+            document.getElementById('refreshBtn').addEventListener('click', fetchData);
+            
+            // Pod search
+            document.getElementById('podSearch').addEventListener('input', function() {
+                fetch('/api/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        filterAndDisplayPods(data.pods);
+                    });
+            });
+            
+            // Namespace filter
+            document.getElementById('namespaceFilter').addEventListener('change', function() {
+                fetch('/api/data')
+                    .then(response => response.json())
+                    .then(data => {
+                        filterAndDisplayPods(data.pods);
+                    });
+            });
+            
+            // Create notification area if it doesn't exist
+            if (!document.getElementById('notification-area')) {
+                const notificationArea = document.createElement('div');
+                notificationArea.id = 'notification-area';
+                document.body.appendChild(notificationArea);
+            }
+            
+            // Auto-refresh every 30 seconds
+            setInterval(fetchData, 30000);
+            
+            // Load pod action functions
+            loadScript('/static/js/pod-actions.js');
+        });
+        
+        // Function to dynamically load scripts
+        function loadScript(src) {
+            console.log("Loading script:", src);
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.onload = function() {
+                console.log("Script loaded successfully:", src);
+            };
+            script.onerror = function() {
+                console.error("Error loading script:", src);
+            };
+            document.body.appendChild(script);
+        }
+    </script>
+</body>
+</html>
