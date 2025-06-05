@@ -428,7 +428,7 @@ def get_data():
             cluster_health["status"] = "Warning"
             cluster_health["components"].append({
                 "name": "Nodes", 
-                "status": f"Warning: {len(not_ready_nodes)} node(s) not ready"
+                "status": f"Warning: {len(not_ready_nodes)} node(s) not ready - {', '.join([node['name'] for node in not_ready_nodes])}"
             })
         
         # Check for any failed pods
