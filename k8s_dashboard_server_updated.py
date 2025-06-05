@@ -53,6 +53,10 @@ networking_v1 = client.NetworkingV1Api()
 
 @app.route('/')
 def index():
+    return render_template('dashboard.html', running_mode='Production Mode')
+
+@app.route('/full-dashboard')
+def full_dashboard():
     return render_template('fixed_template.html', running_mode='Production Mode')
 
 @app.route('/api/data')

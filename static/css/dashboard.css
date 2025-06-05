@@ -1,0 +1,235 @@
+/* Modern Dark Theme Dashboard CSS */
+:root {
+    --bg-color: #1e1e1e;
+    --card-bg: #252525;
+    --text-color: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --green: #7cb342;
+    --yellow: #ffb74d;
+    --red: #e53935;
+    --blue: #29b6f6;
+    --gray: #757575;
+    --border-radius: 4px;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.dashboard-card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-card h2 {
+    margin-top: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-card h2 .actions {
+    font-size: 14px;
+}
+
+.dashboard-card h2 .actions a {
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-left: 10px;
+}
+
+.dashboard-card h2 .actions a:hover {
+    color: var(--text-color);
+}
+
+/* Circular status indicators */
+.status-circle {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-circle .count {
+    font-size: 48px;
+    font-weight: 500;
+    z-index: 2;
+}
+
+.status-circle svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.status-circle circle {
+    fill: transparent;
+    stroke-width: 10;
+    cx: 75;
+    cy: 75;
+    r: 70;
+}
+
+.status-circle .bg {
+    stroke: rgba(255, 255, 255, 0.1);
+}
+
+.status-circle .progress {
+    stroke: var(--green);
+    stroke-dasharray: 440;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+/* Status indicators */
+.status-list {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+.status-item .label {
+    display: flex;
+    align-items: center;
+}
+
+.status-item .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-item .dot.green {
+    background-color: var(--green);
+}
+
+.status-item .dot.yellow {
+    background-color: var(--yellow);
+}
+
+.status-item .dot.red {
+    background-color: var(--red);
+}
+
+.status-item .dot.blue {
+    background-color: var(--blue);
+}
+
+.status-item .dot.gray {
+    background-color: var(--gray);
+}
+
+/* Events bar chart */
+.events-chart {
+    margin-top: 10px;
+}
+
+.event-bar {
+    margin-bottom: 10px;
+}
+
+.event-bar .label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.event-bar .bar {
+    height: 20px;
+    border-radius: var(--border-radius);
+    position: relative;
+}
+
+.event-bar .bar.error {
+    background-color: var(--red);
+}
+
+.event-bar .bar.warning {
+    background-color: var(--yellow);
+}
+
+.event-bar .bar.info {
+    background-color: var(--blue);
+}
+
+/* Alerts section */
+.alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.alert-item {
+    padding: 10px;
+    border-radius: var(--border-radius);
+    font-size: 14px;
+}
+
+.alert-item.critical {
+    background-color: rgba(229, 57, 53, 0.2);
+    border-left: 4px solid var(--red);
+}
+
+.alert-item.warning {
+    background-color: rgba(255, 183, 77, 0.2);
+    border-left: 4px solid var(--yellow);
+}
+
+.alert-item.info {
+    background-color: rgba(41, 182, 246, 0.2);
+    border-left: 4px solid var(--blue);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .status-circle {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .status-circle .count {
+        font-size: 36px;
+    }
+    
+    .status-circle circle {
+        cx: 60;
+        cy: 60;
+        r: 55;
+    }
+}

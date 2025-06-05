@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kubernetes Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h3>K8s Dashboard</h3>
+        </div>
+        <div class="sidebar-menu">
+            <a href="/" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+            <a href="#nodes-section"><i class="fas fa-server"></i> <span>Nodes</span></a>
+            <a href="#pods-section"><i class="fas fa-cubes"></i> <span>Pods</span></a>
+            <a href="#deployments-section"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
+            <a href="#services-section"><i class="fas fa-network-wired"></i> <span>Services</span></a>
+            <a href="#namespaces-section"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div class="header-left">
+                <h1>Kubernetes Dashboard</h1>
+                <p>Cluster overview and health status</p>
+            </div>
+            <div class="header-right">
+                <div class="refresh-button" onclick="fetchDashboardData()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </div>
+                <div class="namespace-filter">
+                    <select id="namespaceFilter" onchange="filterByNamespace()">
+                        <option value="all">All Namespaces</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Pod Status Card -->
+            <div class="dashboard-card">
+                <h2>
+                    Pod Status
+                    <div class="actions">
+                        <a href="#pods-section"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </h2>
+                <div class="status-circle">
+                    <div class="count" id="podCount">0</div>
+                    <svg>
+                        <circle class="bg" cx="75" cy="75" r="70"></circle>
+                        <circle class="progress" id="podStatusCircle" cx="75" cy="75" r="70"></circle>
+                    </svg>
+                </div>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Running
+                        </div>
+                        <div class="value" id="runningPodCount">0 Running</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot yellow"></div>
+                            Pending
+                        </div>
+                        <div class="value" id="pendingPodCount">0 Pending</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot red"></div>
+                            Failed
+                        </div>
+                        <div class="value" id="failedPodCount">0 Failed</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Node Status Card -->
+            <div class="dashboard-card">
+                <h2>
+                    Node Status
+                    <div class="actions">
+                        <a href="#nodes-section"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </h2>
+                <div class="status-circle">
+                    <div class="count" id="nodeCount">0</div>
+                    <svg>
+                        <circle class="bg" cx="75" cy="75" r="70"></circle>
+                        <circle class="progress" id="nodeStatusCircle" cx="75" cy="75" r="70"></circle>
+                    </svg>
+                </div>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Ready
+                        </div>
+                        <div class="value" id="readyNodeCount">0 Ready</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot red"></div>
+                            Not Ready
+                        </div>
+                        <div class="value" id="notReadyNodeCount">0 Not Ready</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deployment Status Card -->
+            <div class="dashboard-card">
+                <h2>
+                    Deployment Status
+                    <div class="actions">
+                        <a href="#deployments-section"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </h2>
+                <div class="status-circle">
+                    <div class="count" id="deploymentCount">0</div>
+                    <svg>
+                        <circle class="bg" cx="75" cy="75" r="70"></circle>
+                        <circle class="progress" id="deploymentStatusCircle" cx="75" cy="75" r="70"></circle>
+                    </svg>
+                </div>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Available
+                        </div>
+                        <div class="value" id="availableDeploymentCount">0 Available</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot yellow"></div>
+                            Progressing
+                        </div>
+                        <div class="value" id="progressingDeploymentCount">0 Progressing</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Usage Card -->
+            <div class="dashboard-card">
+                <h2>Resource Usage</h2>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot blue"></div>
+                            CPU
+                        </div>
+                        <div class="value" id="cpuUsagePercent">0%</div>
+                    </div>
+                    <div class="progress" style="height: 10px; margin-bottom: 15px;">
+                        <div class="progress-bar bg-info" id="cpuUsageBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Memory
+                        </div>
+                        <div class="value" id="memoryUsagePercent">0%</div>
+                    </div>
+                    <div class="progress" style="height: 10px; margin-bottom: 15px;">
+                        <div class="progress-bar bg-success" id="memoryUsageBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cluster Health Card -->
+            <div class="dashboard-card">
+                <h2>
+                    Cluster Health
+                    <span class="status-badge healthy" id="clusterHealthStatus">Healthy</span>
+                </h2>
+                <div class="status-list" id="componentsList">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            API Server
+                        </div>
+                        <div class="value">Healthy</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Controller Manager
+                        </div>
+                        <div class="value">Healthy</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Scheduler
+                        </div>
+                        <div class="value">Healthy</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            etcd
+                        </div>
+                        <div class="value">Healthy</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events Card -->
+            <div class="dashboard-card">
+                <h2>Events</h2>
+                <div class="events-chart">
+                    <div class="event-bar">
+                        <div class="label">
+                            <span>Error</span>
+                            <span id="errorCount">0</span>
+                        </div>
+                        <div class="bar error" id="errorBar" style="width: 10%"></div>
+                    </div>
+                    <div class="event-bar">
+                        <div class="label">
+                            <span>Warning</span>
+                            <span id="warningCount">0</span>
+                        </div>
+                        <div class="bar warning" id="warningBar" style="width: 30%"></div>
+                    </div>
+                    <div class="event-bar">
+                        <div class="label">
+                            <span>Info</span>
+                            <span id="infoCount">0</span>
+                        </div>
+                        <div class="bar info" id="infoBar" style="width: 60%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Card -->
+            <div class="dashboard-card">
+                <h2>Alerts</h2>
+                <div class="alerts-list" id="alertsList">
+                    <div class="alert-item info">No active alerts</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Link to Full Dashboard -->
+        <div class="text-center mb-4">
+            <a href="/full-dashboard" class="btn btn-primary">View Full Dashboard</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
