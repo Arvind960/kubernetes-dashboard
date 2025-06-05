@@ -263,8 +263,11 @@ def get_data():
             # Format creation time
             if creation_timestamp:
                 creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                # Calculate age
+                age = calculate_age(creation_timestamp)
             else:
                 creation_time = "Unknown"
+                age = "Unknown"
             
             # Get service cluster IP
             cluster_ip = service.spec.cluster_ip or "N/A"
@@ -278,6 +281,28 @@ def get_data():
                         break
                     elif ingress.hostname:
                         external_ip = ingress.hostname
+                        break
+            
+            # For NodePort services, include the NodePort in the external IP
+            if service_type == "NodePort" and service.spec.ports and len(service.spec.ports) > 0:
+                # Get the first NodePort
+                for port in service.spec.ports:
+                    if port.node_port:
+                        # Get a list of worker node IPs
+                        node_list = v1.list_node()
+                        worker_ips = []
+                        for node in node_list.items:
+                            if node.status.conditions:
+                                is_ready = any(cond.type == "Ready" and cond.status == "True" for cond in node.status.conditions)
+                                if is_ready:
+                                    for address in node.status.addresses:
+                                        if address.type == "InternalIP":
+                                            worker_ips.append(address.address)
+                                            break
+                        
+                        if worker_ips:
+                            # Use the first worker node IP with the NodePort
+                            external_ip = f"{worker_ips[0]}:{port.node_port}"
                         break
             
             # Get service ports
@@ -301,7 +326,8 @@ def get_data():
                 "cluster_ip": cluster_ip,
                 "external_ip": external_ip,
                 "ports": ports,
-                "creation_time": creation_time
+                "creation_time": creation_time,
+                "age": age
             })
         
         # Get deployments
@@ -325,8 +351,11 @@ def get_data():
             # Format creation time
             if creation_timestamp:
                 creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                # Calculate age
+                age = calculate_age(creation_timestamp)
             else:
                 creation_time = "Unknown"
+                age = "Unknown"
             
             deployments.append({
                 "name": deployment.metadata.name,
@@ -335,6 +364,7 @@ def get_data():
                 "available_replicas": available_replicas,
                 "status": status,
                 "creation_time": creation_time,
+                "age": age,
                 "paused": deployment.spec.paused
             })
         

@@ -901,6 +901,7 @@
                                         <th>Type</th>
                                         <th>Cluster IP</th>
                                         <th>External IP</th>
+                                        <th>Age</th>
                                         <th>Ports</th>
                                     </tr>
                                 </thead>
@@ -1169,11 +1170,12 @@
                         <td><span class="${typeClass}">${service.type}</span></td>
                         <td>${service.cluster_ip}</td>
                         <td>${service.external_ip}</td>
+                        <td>${service.age}</td>
                         <td>${formatServicePorts(service.ports)}</td>
                     </tr>`;
                 });
             } else {
-                servicesHtml = '<tr><td colspan="6" class="text-center">No services found</td></tr>';
+                servicesHtml = '<tr><td colspan="7" class="text-center">No services found</td></tr>';
             }
             document.getElementById('servicesTable').innerHTML = servicesHtml;
             
