@@ -37,6 +37,7 @@ Key modules:
 - **Flask Application**: Handles HTTP requests and serves HTML templates
 - **Kubernetes Client**: Interfaces with the Kubernetes API
 - **Metrics Helper**: Collects and processes resource usage metrics
+- **Pod Health Monitor**: Detects and reports pod health issues
 
 ### 2. Metrics Helper (`metrics_helper.py`)
 
@@ -52,15 +53,25 @@ Handles pod management operations:
 - Resuming deployments (scaling back to original replicas)
 - Managing pod lifecycle
 
-### 4. Frontend UI (`templates/fixed_template.html`)
+### 4. Pod Health Monitor (`pod_health_monitor.py`)
+
+Monitors pod health and detects common issues:
+- Identifies pods in "hang" states
+- Detects application deadlocks
+- Monitors for resource starvation
+- Identifies crash loops and stuck init containers
+- Detects volume mount issues
+
+### 5. Frontend UI (`templates/fixed_template.html`)
 
 The dashboard UI built with:
 - HTML5
 - CSS3 with Bootstrap 5
 - JavaScript for dynamic updates
 - AJAX for asynchronous data fetching
+- SVG for data visualization
 
-### 5. Systemd Service (`k8s-dashboard.service`)
+### 6. Systemd Service (`k8s-dashboard.service`)
 
 Manages the application as a persistent system service:
 - Ensures the dashboard runs continuously
@@ -77,15 +88,17 @@ Manages the application as a persistent system service:
    - Flask server receives API requests
    - Server queries the Kubernetes API for cluster information
    - Metrics Helper retrieves resource usage data from Metrics Server
+   - Pod Health Monitor analyzes pod states for potential issues
    - Data is processed and formatted
 
 3. **Data Display**:
    - Processed data is returned to the frontend as JSON
    - JavaScript updates the UI with the latest information
    - Charts and tables are refreshed
+   - Health metrics are updated
 
 4. **Management Operations**:
-   - User initiates actions (e.g., pause/resume deployments)
+   - User initiates actions (e.g., pause/resume deployments, restart pods)
    - Frontend sends action requests to the Flask server
    - Server executes Kubernetes API calls to perform the requested actions
    - Results are returned to the frontend
@@ -97,15 +110,22 @@ kubernetes-dashboard/
 ├── k8s_dashboard_server_updated.py  # Main Flask application
 ├── metrics_helper.py                # Helper for metrics collection
 ├── pod_actions.py                   # Pod management functions
+├── pod_health_monitor.py            # Pod health monitoring functions
 ├── k8s-dashboard.service            # Systemd service definition
 ├── start_dashboard.sh               # Convenience script to start service
 ├── stop_dashboard.sh                # Convenience script to stop service
 ├── requirements.txt                 # Python dependencies
+├── IMPROVEMENTS.md                  # Documentation of improvements
+├── INSTALLATION.md                  # Installation instructions
+├── ARCHITECTURE.md                  # Architecture documentation
 ├── logs/                            # Log directory
 │   └── k8s_dashboard.log            # Application logs
 ├── static/                          # Static assets
 │   ├── css/                         # CSS stylesheets
+│   │   ├── styles.css               # Main stylesheet
+│   │   └── pod-health.css           # Pod health monitoring styles
 │   └── js/                          # JavaScript files
+│       └── pod-health.js            # Pod health monitoring scripts
 └── templates/                       # HTML templates
     ├── dashboard.html               # Simple dashboard view
     └── fixed_template.html          # Full-featured dashboard view
@@ -123,6 +143,29 @@ kubernetes-dashboard/
 - All communication with the Kubernetes API uses TLS encryption
 - The dashboard runs with the permissions of the authenticated user
 - For production use, consider implementing additional authentication for the web UI
+
+## Monitoring Features
+
+The dashboard includes several monitoring features:
+
+1. **Resource Monitoring**:
+   - CPU and memory usage across the cluster
+   - Node resource utilization
+   - Pod resource consumption
+
+2. **Health Monitoring**:
+   - Pod status tracking (Running, Pending, Failed)
+   - Node health status
+   - Application deadlock detection
+   - Resource starvation detection
+   - Crash loop detection
+   - Volume mount issue detection
+
+3. **Visualization**:
+   - Node distribution chart
+   - Resource usage progress bars
+   - Status indicators with color coding
+   - Health metrics summary
 
 ## Scalability
 
@@ -144,3 +187,4 @@ Potential improvements to the architecture:
 - Add user authentication and role-based access control
 - Create a backend database for historical metrics
 - Develop a plugin system for custom extensions
+- Add support for multiple clusters

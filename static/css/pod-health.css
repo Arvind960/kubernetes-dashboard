@@ -1,0 +1,52 @@
+/* Pod Health Monitoring Styles */
+.pod-health-overview {
+    margin-bottom: 20px;
+}
+
+.health-metrics-container {
+    margin-bottom: 20px;
+}
+
+.health-metrics-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.health-metric {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(50, 108, 229, 0.08);
+    padding: 15px;
+    min-width: 120px;
+    text-align: center;
+}
+
+.health-metric-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.health-metric-value.healthy {
+    color: #3dba8c;
+}
+
+.health-metric-value.warning {
+    color: #ffbe0b;
+}
+
+.health-metric-value.error {
+    color: #ff6b6b;
+}
+
+.health-metric-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.hang-detection-panel h4 {
+    margin-bottom: 15px;
+    color: #2a3f5f;
+}

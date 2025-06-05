@@ -6,7 +6,7 @@ This document provides detailed instructions for installing and configuring the 
 
 Before installing the dashboard, ensure you have the following prerequisites:
 
-- Kubernetes cluster with version 1.19+ 
+- Kubernetes cluster with version 1.19+
 - `kubectl` configured with cluster access
 - Python 3.6+
 - `pip` package manager
@@ -129,6 +129,18 @@ If the dashboard cannot connect to the Kubernetes API:
    ```bash
    tail -f /root/python-script/logs/k8s_dashboard.log
    ```
+
+### Pod Health Monitor Not Showing Data
+
+If the Pod Health Monitor section is not showing data:
+
+1. Check if the API endpoint is working:
+   ```bash
+   curl http://localhost:8888/api/pod-health
+   ```
+
+2. Verify that JavaScript is enabled in your browser
+3. Check the browser console for any errors
 
 ### Service Won't Start
 
