@@ -213,3 +213,30 @@
 .status-badge.paused i {
     color: #ffa500;
 }
+/* Version information styling */
+.version-info {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.version-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.version-label {
+    font-weight: 500;
+    margin-right: 10px;
+    color: #555;
+}
+
+.version-value {
+    font-family: monospace;
+    padding: 3px 8px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    color: #326ce5;
+}

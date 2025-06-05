@@ -752,6 +752,30 @@
                         </h2>
                     </div>
                     <div class="card-body">
+                        <!-- Version Information -->
+                        <div class="version-info mb-4">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="version-item">
+                                        <span class="version-label"><i class="fas fa-server me-2"></i>Kubernetes Version:</span>
+                                        <span class="version-value" id="kubernetesVersion">Loading...</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="version-item">
+                                        <span class="version-label"><i class="fas fa-terminal me-2"></i>Kubectl Version:</span>
+                                        <span class="version-value" id="kubectlVersion">Loading...</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="version-item">
+                                        <span class="version-label"><i class="fas fa-box me-2"></i>CRI Version:</span>
+                                        <span class="version-value" id="criVersion">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Namespaces Table -->
                         <div class="table-container">
                             <table class="k8s-table">
                                 <thead>
@@ -1036,6 +1060,13 @@
             
             document.getElementById('memoryProgress').style.width = memoryPercent + '%';
             document.getElementById('memoryText').textContent = `${memoryUsed.toFixed(2)}/${memoryTotal.toFixed(1)} GB (${memoryPercent.toFixed(1)}%)`;
+            
+            // Update version information
+            if (data.version_info) {
+                document.getElementById('kubernetesVersion').textContent = data.version_info.kubernetes_version;
+                document.getElementById('kubectlVersion').textContent = data.version_info.kubectl_version;
+                document.getElementById('criVersion').textContent = data.version_info.cri_version;
+            }
             
             // Namespaces
             let namespacesHtml = '';

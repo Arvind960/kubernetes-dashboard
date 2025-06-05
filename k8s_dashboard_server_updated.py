@@ -62,6 +62,37 @@ def full_dashboard():
 @app.route('/api/data')
 def get_data():
     try:
+        # Get version information
+        version_info = {
+            "kubernetes_version": "N/A",
+            "kubectl_version": "N/A",
+            "cri_version": "N/A"
+        }
+        
+        try:
+            # Get Kubernetes version
+            version_output = subprocess.check_output(["kubectl", "version", "--output=json"], stderr=subprocess.STDOUT)
+            version_data = json.loads(version_output)
+            
+            if "serverVersion" in version_data:
+                version_info["kubernetes_version"] = version_data["serverVersion"]["gitVersion"]
+            
+            if "clientVersion" in version_data:
+                version_info["kubectl_version"] = version_data["clientVersion"]["gitVersion"]
+            
+            # Get CRI version from a node
+            nodes_output = subprocess.check_output(["kubectl", "get", "nodes", "-o", "wide"], stderr=subprocess.STDOUT)
+            nodes_lines = nodes_output.decode('utf-8').strip().split('\n')
+            
+            if len(nodes_lines) > 1:  # Header + at least one node
+                # Get the first node's container runtime
+                node_info = nodes_lines[1].split()
+                if len(node_info) >= 10:  # Ensure we have enough columns
+                    cri_info = node_info[9]  # Container runtime column
+                    version_info["cri_version"] = cri_info
+        except Exception as e:
+            logger.error(f"Error getting version information: {e}")
+        
         # Get metrics first
         pod_metrics = get_pod_metrics()
         node_metrics = get_node_metrics()
@@ -516,7 +547,8 @@ def get_data():
             },
             "cluster_health": cluster_health,
             "alerts": alerts,
-            "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "last_updated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version_info": version_info
         })
     except Exception as e:
         logger.error(f"Error getting data: {e}")
