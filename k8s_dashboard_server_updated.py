@@ -81,16 +81,22 @@ def get_data():
                 version_info["kubectl_version"] = version_data["clientVersion"]["gitVersion"]
             
             # Get CRI version from a node
-            nodes_output = subprocess.check_output(["kubectl", "get", "nodes", "-o", "wide"], stderr=subprocess.STDOUT)
-            nodes_lines = nodes_output.decode('utf-8').strip().split('\n')
-            
-            if len(nodes_lines) > 1:  # Header + at least one node
-                # Get the first node's container runtime
-                node_info = nodes_lines[1].split()
-                if len(node_info) >= 10:  # Ensure we have enough columns
-                    cri_info = node_info[9]  # Container runtime column
-                    # Use the full CRI info as is (e.g., "cri-o://1.32.4")
-                    version_info["cri_version"] = cri_info
+            try:
+                # Use kubectl directly to get the container runtime
+                nodes_output = subprocess.check_output(["kubectl", "get", "nodes", "-o", "wide"], stderr=subprocess.STDOUT)
+                nodes_lines = nodes_output.decode('utf-8').strip().split('\n')
+                
+                if len(nodes_lines) > 1:  # Header + at least one node
+                    # Get the first node's container runtime
+                    node_line = nodes_lines[1]
+                    columns = node_line.split()
+                    if len(columns) >= 10:
+                        # The container runtime is typically the last column
+                        version_info["cri_version"] = columns[-1]
+                        logger.info(f"Found CRI version: {version_info['cri_version']}")
+            except Exception as e:
+                logger.error(f"Error getting CRI version: {e}")
+                version_info["cri_version"] = "N/A"
         except Exception as e:
             logger.error(f"Error getting version information: {e}")
         
