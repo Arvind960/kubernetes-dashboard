@@ -89,7 +89,12 @@ def get_data():
                 node_info = nodes_lines[1].split()
                 if len(node_info) >= 10:  # Ensure we have enough columns
                     cri_info = node_info[9]  # Container runtime column
-                    version_info["cri_version"] = cri_info
+                    # Extract just the version part without LTS
+                    if '://' in cri_info:
+                        # Format is typically like "cri-o://1.32.4"
+                        version_info["cri_version"] = cri_info.split('://')[1]
+                    else:
+                        version_info["cri_version"] = cri_info
         except Exception as e:
             logger.error(f"Error getting version information: {e}")
         
