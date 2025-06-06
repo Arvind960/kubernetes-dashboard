@@ -109,6 +109,15 @@ To view logs in real-time:
 tail -f /root/python-script/logs/k8s_dashboard.log
 ```
 
+### Refresh Interval
+
+To change the refresh interval for the Pod Health Monitor, modify the `static/js/pod-health.js` file:
+
+```javascript
+// Set up refresh interval
+setInterval(fetchPodHealthData, 10000); // 10000 ms = 10 seconds
+```
+
 ## Troubleshooting
 
 ### Dashboard Cannot Connect to Kubernetes API
@@ -141,6 +150,16 @@ If the Pod Health Monitor section is not showing data:
 
 2. Verify that JavaScript is enabled in your browser
 3. Check the browser console for any errors
+4. Ensure the pod_health_monitor.py file is properly imported in the main server file
+
+### Details Modal Not Working
+
+If the pod details modal is not appearing when clicking the Details button:
+
+1. Check the browser console for JavaScript errors
+2. Verify that Bootstrap is properly loaded
+3. Ensure the modal HTML is present in the template
+4. Check that the viewPodDetails function is being called
 
 ### Service Won't Start
 

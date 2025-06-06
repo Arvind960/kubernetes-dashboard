@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/pod-health.css">
     <style>
         :root {
             --primary-color: #326ce5; /* Kubernetes blue */
@@ -517,6 +518,76 @@
             justify-content: space-between;
         }
         
+        /* Node Type Circle Icons Styles */
+        .cluster-nodes-overview {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+        }
+        
+        .node-type-indicators {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .node-type {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .combined-circle-icon {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .node-count {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .node-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .node-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        
+        .legend-color.master {
+            background-color: #326ce5; /* Kubernetes blue */
+        }
+        
+        .legend-color.worker {
+            background-color: #3dba8c; /* Green */
+        }
+        
+        .legend-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
         @media (max-width: 992px) {
             .sidebar {
                 width: 70px;
@@ -608,6 +679,30 @@
                     </div>
                     <div class="card-body">
                         <div id="clusterHealth"></div>
+                        
+                        <!-- Node Overview with Combined Circle Icon -->
+                        <div class="cluster-nodes-overview">
+                            <h3 class="resource-title">Cluster Nodes</h3>
+                            <div class="node-type-indicators">
+                                <div class="node-type">
+                                    <div class="combined-circle-icon" id="nodeDistributionCircle">
+                                        <!-- The circle will be rendered with SVG -->
+                                    </div>
+                                    <span class="node-count" id="totalNodeCount">0</span>
+                                    <span class="node-label">Total Nodes</span>
+                                </div>
+                            </div>
+                            <div class="node-legend">
+                                <div class="legend-item">
+                                    <div class="legend-color master"></div>
+                                    <span class="legend-label">Master Nodes: <span id="masterNodeCount">0</span></span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color worker"></div>
+                                    <span class="legend-label">Worker Nodes: <span id="workerNodeCount">0</span></span>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div class="resource-usage">
                             <h3 class="resource-title">Resource Usage</h3>
@@ -742,6 +837,47 @@
         </div>
         
         <!-- Namespace Overview -->
+        <!-- Pod Health Monitoring Section -->
+        <div class="row mb-4">
+          <div class="col-md-12">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <i class="fas fa-heartbeat"></i>
+                  Pod Health Monitor
+                </h2>
+              </div>
+              <div class="card-body">
+                <div class="pod-health-overview">
+                  <div class="health-metrics-container" id="podHealthMetrics">
+                    <!-- Health metrics will be populated here -->
+                  </div>
+                  
+                  <div class="hang-detection-panel">
+                    <h4>Potential Hang Detection</h4>
+                    <div class="table-container">
+                      <table class="k8s-table">
+                        <thead>
+                          <tr>
+                            <th>Pod Name</th>
+                            <th>Namespace</th>
+                            <th>Issue Type</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="hangDetectionTable">
+                          <!-- Hang detection results will be populated here -->
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="namespaces-section" class="row mb-4">
             <div class="col-md-12">
                 <div class="card">
@@ -959,6 +1095,7 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/pod-health.js"></script>
     <script>
         // Fetch data from API
         async function fetchData() {
@@ -1002,6 +1139,124 @@
             document.getElementById('deploymentCount').textContent = data.deployments ? data.deployments.length : 0;
             document.getElementById('serviceCount').textContent = data.services ? data.services.length : 0;
             document.getElementById('namespaceCount').textContent = data.namespaces ? data.namespaces.length : 0;
+            
+            // Update node counts and distribution circle
+            let masterCount = 0;
+            let workerCount = 0;
+            
+            if (data.nodes && data.nodes.length > 0) {
+                data.nodes.forEach(node => {
+                    if (node.role === 'master' || node.role === 'control-plane') {
+                        masterCount++;
+                    } else {
+                        workerCount++;
+                    }
+                });
+            }
+            
+            const totalNodes = masterCount + workerCount;
+            document.getElementById('totalNodeCount').textContent = totalNodes;
+            document.getElementById('masterNodeCount').textContent = masterCount;
+            document.getElementById('workerNodeCount').textContent = workerCount;
+            
+            // Create SVG pie chart for node distribution
+            const nodeCircle = document.getElementById('nodeDistributionCircle');
+            const masterPercentage = totalNodes > 0 ? (masterCount / totalNodes) * 100 : 0;
+            const workerPercentage = totalNodes > 0 ? (workerCount / totalNodes) * 100 : 0;
+            
+            // Create SVG element
+            const svgNS = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("width", "120");
+            svg.setAttribute("height", "120");
+            svg.setAttribute("viewBox", "0 0 120 120");
+            
+            // Create circle background
+            const circleBackground = document.createElementNS(svgNS, "circle");
+            circleBackground.setAttribute("cx", "60");
+            circleBackground.setAttribute("cy", "60");
+            circleBackground.setAttribute("r", "50");
+            circleBackground.setAttribute("fill", "#f5f5f5");
+            circleBackground.setAttribute("stroke", "#ddd");
+            circleBackground.setAttribute("stroke-width", "1");
+            svg.appendChild(circleBackground);
+            
+            // Calculate angles for pie segments
+            const masterAngle = (masterPercentage / 100) * 360;
+            const workerAngle = (workerPercentage / 100) * 360;
+            
+            // Create master segment (if any)
+            if (masterCount > 0) {
+                const masterPath = document.createElementNS(svgNS, "path");
+                const masterStartX = 60;
+                const masterStartY = 10;
+                const masterEndAngle = Math.min(masterAngle, 359.99) * Math.PI / 180;
+                const masterEndX = 60 + 50 * Math.sin(masterEndAngle);
+                const masterEndY = 60 - 50 * Math.cos(masterEndAngle);
+                const masterLargeArc = masterAngle > 180 ? 1 : 0;
+                
+                masterPath.setAttribute("d", `M 60 60 L 60 10 A 50 50 0 ${masterLargeArc} 1 ${masterEndX} ${masterEndY} Z`);
+                masterPath.setAttribute("fill", "#326ce5"); // Kubernetes blue
+                svg.appendChild(masterPath);
+            }
+            
+            // Create worker segment (if any)
+            if (workerCount > 0) {
+                const workerPath = document.createElementNS(svgNS, "path");
+                let workerStartX, workerStartY;
+                
+                if (masterCount > 0) {
+                    const masterEndAngle = Math.min(masterAngle, 359.99) * Math.PI / 180;
+                    workerStartX = 60 + 50 * Math.sin(masterEndAngle);
+                    workerStartY = 60 - 50 * Math.cos(masterEndAngle);
+                } else {
+                    workerStartX = 60;
+                    workerStartY = 10;
+                }
+                
+                const workerEndAngle = Math.min((masterAngle + workerAngle), 359.99) * Math.PI / 180;
+                const workerEndX = 60 + 50 * Math.sin(workerEndAngle);
+                const workerEndY = 60 - 50 * Math.cos(workerEndAngle);
+                const workerLargeArc = workerAngle > 180 ? 1 : 0;
+                
+                if (masterCount === 0) {
+                    // If no master nodes, worker takes full circle
+                    workerPath.setAttribute("d", `M 60 60 L 60 10 A 50 50 0 1 1 59.99 10 Z`);
+                } else if (masterCount === totalNodes) {
+                    // No worker segment needed
+                } else {
+                    const masterEndAngle = masterAngle * Math.PI / 180;
+                    workerPath.setAttribute("d", `M 60 60 L ${workerStartX} ${workerStartY} A 50 50 0 ${workerLargeArc} 1 ${workerEndX} ${workerEndY} Z`);
+                }
+                
+                workerPath.setAttribute("fill", "#3dba8c"); // Green
+                svg.appendChild(workerPath);
+            }
+            
+            // Add center circle with node count
+            const centerCircle = document.createElementNS(svgNS, "circle");
+            centerCircle.setAttribute("cx", "60");
+            centerCircle.setAttribute("cy", "60");
+            centerCircle.setAttribute("r", "30");
+            centerCircle.setAttribute("fill", "white");
+            centerCircle.setAttribute("stroke", "#ddd");
+            centerCircle.setAttribute("stroke-width", "1");
+            svg.appendChild(centerCircle);
+            
+            // Add node count text
+            const nodeCountText = document.createElementNS(svgNS, "text");
+            nodeCountText.setAttribute("x", "60");
+            nodeCountText.setAttribute("y", "65");
+            nodeCountText.setAttribute("text-anchor", "middle");
+            nodeCountText.setAttribute("font-size", "20");
+            nodeCountText.setAttribute("font-weight", "bold");
+            nodeCountText.setAttribute("fill", "#333");
+            nodeCountText.textContent = totalNodes;
+            svg.appendChild(nodeCountText);
+            
+            // Clear previous content and add the SVG
+            nodeCircle.innerHTML = '';
+            nodeCircle.appendChild(svg);
             
             // Cluster health
             let healthHtml = '';
@@ -1413,3 +1668,24 @@
     </script>
 </body>
 </html>
+
+<!-- Pod Details Modal -->
+<div class="modal fade" id="podDetailsModal" tabindex="-1" aria-labelledby="podDetailsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="podDetailsModalLabel">Pod Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="podDetailsContent">
+          <!-- Pod details will be populated here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="restartPodBtn">Restart Pod</button>
+      </div>
+    </div>
+  </div>
+</div>

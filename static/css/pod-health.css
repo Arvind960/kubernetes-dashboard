@@ -50,3 +50,42 @@
     margin-bottom: 15px;
     color: #2a3f5f;
 }
+
+/* Pod Details Modal Styles */
+.pod-details {
+    font-size: 14px;
+}
+
+.details-section {
+    margin-bottom: 20px;
+}
+
+.details-section h5 {
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+    color: #2a3f5f;
+}
+
+.details-section .table {
+    margin-bottom: 0;
+}
+
+.details-section .alert {
+    margin-bottom: 0;
+}
+
+.status-badge.running {
+    background-color: rgba(61, 186, 140, 0.1);
+    color: #3dba8c;
+}
+
+.status-badge.pending {
+    background-color: rgba(255, 190, 11, 0.1);
+    color: #ffbe0b;
+}
+
+.status-badge.failed {
+    background-color: rgba(255, 107, 107, 0.1);
+    color: #ff6b6b;
+}

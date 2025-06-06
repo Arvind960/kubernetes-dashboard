@@ -884,6 +884,49 @@ def start_pod():
             'message': f"Unexpected error: {str(e)}"
         }), 500
 
+# Import pod health monitoring module
+from pod_health_monitor import get_pod_health, restart_pod
+
+@app.route('/api/pod-health')
+def api_pod_health():
+    return get_pod_health(v1, logger)
+
+@app.route('/api/pods/<namespace>/<pod_name>/restart', methods=['POST'])
+def api_restart_pod(namespace, pod_name):
+    return restart_pod(v1, namespace, pod_name, logger)
+
 if __name__ == '__main__':
     logger.info("Starting Kubernetes Dashboard Server")
     app.run(host='0.0.0.0', port=8888)
+@app.route('/api/daemonsets')
+def get_daemonsets():
+    try:
+        daemonsets = []
+        ds_list = apps_v1.list_daemon_set_for_all_namespaces()
+        
+        for ds in ds_list.items:
+            daemonsets.append({
+                'name': ds.metadata.name,
+                'namespace': ds.metadata.namespace,
+                'desiredNumberScheduled': ds.status.desired_number_scheduled,
+                'currentNumberScheduled': ds.status.current_number_scheduled,
+                'numberReady': ds.status.number_ready,
+                'numberAvailable': ds.status.number_available if hasattr(ds.status, 'number_available') else 0,
+                'numberUnavailable': ds.status.number_unavailable if hasattr(ds.status, 'number_unavailable') else 0
+            })
+        
+        return jsonify(daemonsets)
+    except Exception as e:
+        logger.error(f"Error getting DaemonSets: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Import pod health monitoring module
+from pod_health_monitor import get_pod_health, restart_pod
+
+@app.route('/api/pod-health')
+def api_pod_health():
+    return get_pod_health(v1, logger)
+
+@app.route('/api/pods/<namespace>/<pod_name>/restart', methods=['POST'])
+def api_restart_pod(namespace, pod_name):
+    return restart_pod(v1, namespace, pod_name, logger)

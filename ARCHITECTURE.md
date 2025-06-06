@@ -46,14 +46,7 @@ A specialized module that:
 - Formats metrics into human-readable values
 - Calculates resource utilization percentages
 
-### 3. Pod Actions (`pod_actions.py`)
-
-Handles pod management operations:
-- Pausing deployments (scaling to zero)
-- Resuming deployments (scaling back to original replicas)
-- Managing pod lifecycle
-
-### 4. Pod Health Monitor (`pod_health_monitor.py`)
+### 3. Pod Health Monitor (`pod_health_monitor.py`)
 
 Monitors pod health and detects common issues:
 - Identifies pods in "hang" states
@@ -61,8 +54,9 @@ Monitors pod health and detects common issues:
 - Monitors for resource starvation
 - Identifies crash loops and stuck init containers
 - Detects volume mount issues
+- Provides troubleshooting guidance
 
-### 5. Frontend UI (`templates/fixed_template.html`)
+### 4. Frontend UI (`templates/fixed_template.html`)
 
 The dashboard UI built with:
 - HTML5
@@ -70,8 +64,9 @@ The dashboard UI built with:
 - JavaScript for dynamic updates
 - AJAX for asynchronous data fetching
 - SVG for data visualization
+- Modal dialogs for detailed views
 
-### 6. Systemd Service (`k8s-dashboard.service`)
+### 5. Systemd Service (`k8s-dashboard.service`)
 
 Manages the application as a persistent system service:
 - Ensures the dashboard runs continuously
@@ -98,7 +93,7 @@ Manages the application as a persistent system service:
    - Health metrics are updated
 
 4. **Management Operations**:
-   - User initiates actions (e.g., pause/resume deployments, restart pods)
+   - User initiates actions (e.g., restart pods, view details)
    - Frontend sends action requests to the Flask server
    - Server executes Kubernetes API calls to perform the requested actions
    - Results are returned to the frontend
@@ -109,7 +104,6 @@ Manages the application as a persistent system service:
 kubernetes-dashboard/
 ├── k8s_dashboard_server_updated.py  # Main Flask application
 ├── metrics_helper.py                # Helper for metrics collection
-├── pod_actions.py                   # Pod management functions
 ├── pod_health_monitor.py            # Pod health monitoring functions
 ├── k8s-dashboard.service            # Systemd service definition
 ├── start_dashboard.sh               # Convenience script to start service
@@ -130,6 +124,15 @@ kubernetes-dashboard/
     ├── dashboard.html               # Simple dashboard view
     └── fixed_template.html          # Full-featured dashboard view
 ```
+
+## API Endpoints
+
+The dashboard provides several API endpoints:
+
+1. **`/api/data`**: Returns all cluster data including nodes, pods, services, etc.
+2. **`/api/pod-health`**: Returns health data for all pods with potential issues
+3. **`/api/pods/<namespace>/<pod_name>/restart`**: Restarts a specific pod
+4. **`/api/daemonsets`**: Returns information about DaemonSets in the cluster
 
 ## Communication Protocols
 
@@ -166,6 +169,12 @@ The dashboard includes several monitoring features:
    - Resource usage progress bars
    - Status indicators with color coding
    - Health metrics summary
+
+4. **Troubleshooting**:
+   - Detailed pod information modal
+   - Issue-specific troubleshooting guidance
+   - Direct pod management actions
+   - Real-time status updates
 
 ## Scalability
 
