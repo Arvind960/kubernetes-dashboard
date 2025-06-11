@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pod Details Test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body { padding: 20px; }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 75%;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.25rem;
+            color: #fff;
+        }
+        .status-badge.running { background-color: #28a745; }
+        .status-badge.pending { background-color: #ffc107; color: #212529; }
+        .status-badge.failed { background-color: #dc3545; }
+        .status-badge.succeeded { background-color: #17a2b8; }
+        .details-section {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pod Details Test</h1>
+        <p>This page tests the pod details functionality with troubleshooting guidance.</p>
+        
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">Pod with Issues</div>
+                    <div class="card-body">
+                        <p>This pod has issues (etcd-kube-master-1)</p>
+                        <button class="btn btn-primary" id="viewPodWithIssues">
+                            <i class="fas fa-search"></i> View Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">Pod without Issues</div>
+                    <div class="card-body">
+                        <p>This pod has no issues (calico-kube-controllers)</p>
+                        <button class="btn btn-primary" id="viewPodWithoutIssues">
+                            <i class="fas fa-search"></i> View Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/pod-health.js"></script>
+    <script>
+        // Mock data for testing
+        window.podDetailsData = {
+            "kube-system/etcd-kube-master-1": {
+                "container_statuses": [{
+                    "name": "etcd",
+                    "ready": true,
+                    "restart_count": 11,
+                    "started_at": "2025-06-06T18:31:00+00:00",
+                    "state": "running"
+                }],
+                "name": "etcd-kube-master-1",
+                "namespace": "kube-system",
+                "potential_issues": [{
+                    "description": "Container etcd has restarted 11 times, possible resource issues",
+                    "duration": "Ongoing",
+                    "severity": "Warning",
+                    "type": "Resource Starvation"
+                }, {
+                    "description": "Container etcd has restarted 11 times",
+                    "duration": "Ongoing",
+                    "severity": "Error",
+                    "type": "Crash Loop"
+                }],
+                "start_time": "2025-06-06T18:30:45+00:00",
+                "status": "Running"
+            },
+            "kube-system/calico-kube-controllers-79949b87d-p5h5b": {
+                "container_statuses": [{
+                    "name": "calico-kube-controllers",
+                    "ready": true,
+                    "restart_count": 0,
+                    "started_at": "2025-06-11T07:23:40+00:00",
+                    "state": "running"
+                }],
+                "name": "calico-kube-controllers-79949b87d-p5h5b",
+                "namespace": "kube-system",
+                "potential_issues": [],
+                "start_time": "2025-06-11T07:23:27+00:00",
+                "status": "Running"
+            }
+        };
+        
+        // Add event listeners
+        document.getElementById('viewPodWithIssues').addEventListener('click', function() {
+            viewPodDetails('kube-system', 'etcd-kube-master-1');
+        });
+        
+        document.getElementById('viewPodWithoutIssues').addEventListener('click', function() {
+            viewPodDetails('kube-system', 'calico-kube-controllers-79949b87d-p5h5b');
+        });
+        
+        // Helper function to create the pod details modal if not defined in pod-health.js
+        if (typeof createPodDetailsModal !== 'function') {
+            function createPodDetailsModal() {
+                // Add modal HTML to the document body
+                const modalHtml = `
+                    <div class="modal fade" id="podDetailsModal" tabindex="-1" aria-labelledby="podDetailsModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="podDetailsModalLabel">Pod Details</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="podDetailsContent"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" id="restartPodBtn" class="btn btn-warning">Restart Pod</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                return document.getElementById('podDetailsModal');
+            }
+        }
+    </script>
+</body>
+</html>

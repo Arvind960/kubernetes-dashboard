@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pod Health Metrics Test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Pod Health Metrics Test</h1>
+        <p>This page tests the pod health metrics with issue type counts in the summary.</p>
+        
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">Pod Health Monitor</div>
+                    <div class="card-body">
+                        <div id="podHealthMetrics"></div>
+                        <div class="table-responsive mt-4">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Pod</th>
+                                        <th>Namespace</th>
+                                        <th>Issue Type</th>
+                                        <th>Duration</th>
+                                        <th>Severity</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hangDetectionTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/pod-health.js"></script>
+    <script>
+        // Mock data for testing
+        const mockPodHealthData = [
+            {
+                "container_statuses": [{
+                    "name": "etcd",
+                    "ready": true,
+                    "restart_count": 11,
+                    "started_at": "2025-06-06T18:31:00+00:00",
+                    "state": "running"
+                }],
+                "name": "etcd-kube-master-1",
+                "namespace": "kube-system",
+                "potential_issues": [{
+                    "description": "Container etcd has restarted 11 times, possible resource issues",
+                    "duration": "Ongoing",
+                    "severity": "Warning",
+                    "type": "Resource Starvation"
+                }, {
+                    "description": "Container etcd has restarted 11 times",
+                    "duration": "Ongoing",
+                    "severity": "Error",
+                    "type": "Crash Loop"
+                }],
+                "start_time": "2025-06-06T18:30:45+00:00",
+                "status": "Running"
+            },
+            {
+                "container_statuses": [{
+                    "name": "etcd",
+                    "ready": true,
+                    "restart_count": 10,
+                    "started_at": "2025-06-06T18:31:00+00:00",
+                    "state": "running"
+                }],
+                "name": "etcd-kube-master-2",
+                "namespace": "kube-system",
+                "potential_issues": [{
+                    "description": "Container etcd has restarted 10 times, possible resource issues",
+                    "duration": "Ongoing",
+                    "severity": "Warning",
+                    "type": "Resource Starvation"
+                }, {
+                    "description": "Container etcd has restarted 10 times",
+                    "duration": "Ongoing",
+                    "severity": "Error",
+                    "type": "Crash Loop"
+                }],
+                "start_time": "2025-06-06T18:30:46+00:00",
+                "status": "Running"
+            },
+            {
+                "container_statuses": [{
+                    "name": "main-container",
+                    "ready": false,
+                    "restart_count": 0,
+                    "started_at": "2025-06-08T04:14:00+00:00",
+                    "state": "running"
+                }],
+                "name": "deadlock-pod",
+                "namespace": "default",
+                "potential_issues": [{
+                    "description": "Test pod with deadlock detected",
+                    "duration": "Test Case",
+                    "severity": "Warning",
+                    "type": "Application Deadlock"
+                }],
+                "start_time": "2025-06-08T04:13:45+00:00",
+                "status": "Running"
+            },
+            {
+                "container_statuses": [{
+                    "name": "main-container",
+                    "ready": false,
+                    "reason": "PodInitializing",
+                    "restart_count": 0,
+                    "state": "waiting"
+                }],
+                "name": "stuck-init-pod",
+                "namespace": "default",
+                "potential_issues": [{
+                    "description": "Test pod with stuck init container detected",
+                    "duration": "Test Case",
+                    "severity": "Error",
+                    "type": "Stuck Init Container"
+                }],
+                "start_time": "2025-06-06T12:02:50+00:00",
+                "status": "Pending"
+            },
+            {
+                "container_statuses": [],
+                "name": "volume-issue-pod",
+                "namespace": "default",
+                "potential_issues": [{
+                    "description": "Test pod with volume mount issue detected",
+                    "duration": "Test Case",
+                    "severity": "Warning",
+                    "type": "Volume Mount Issue"
+                }],
+                "start_time": null,
+                "status": "Pending"
+            }
+        ];
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM loaded, initializing pod health monitor test");
+            
+            // Update UI with mock data
+            updatePodHealthUI(mockPodHealthData);
+        });
+    </script>
+</body>
+</html>
