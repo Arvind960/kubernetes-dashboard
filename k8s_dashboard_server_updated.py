@@ -57,6 +57,10 @@ networking_v1 = client.NetworkingV1Api()
 def index():
     return render_template('dashboard.html', running_mode='')
 
+@app.route('/updated-dashboard')
+def updated_dashboard():
+    return render_template('dashboard_updated.html', running_mode='')
+
 @app.route('/full-dashboard')
 def full_dashboard():
     return render_template('fixed_template.html', running_mode='')
