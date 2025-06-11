@@ -233,3 +233,79 @@ body {
         r: 55;
     }
 }
+/* Add this to your existing CSS */
+.issue-breakdown .card {
+    border-left: 4px solid #ffc107;
+    transition: transform 0.2s;
+}
+
+.issue-breakdown .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.issue-breakdown .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.issue-breakdown .text-danger {
+    color: #dc3545 !important;
+}
+
+.issue-breakdown .text-warning {
+    color: #ffc107 !important;
+}
+
+.issue-breakdown .text-info {
+    color: #17a2b8 !important;
+}
+
+.issue-breakdown .display-4 {
+    font-size: 2.5rem;
+    font-weight: 300;
+}
+.health-metrics-summary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.health-metric {
+    text-align: center;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 120px;
+    flex: 0 0 auto;
+    transition: transform 0.2s;
+}
+
+.health-metric:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.health-metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #28a745;
+}
+
+.health-metric-value.warning {
+    color: #ffc107;
+}
+
+.health-metric-value.danger {
+    color: #dc3545;
+}
+
+.health-metric-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    white-space: nowrap;
+}

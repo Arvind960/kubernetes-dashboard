@@ -904,7 +904,7 @@ def get_pod_logs(namespace, pod_name):
         logs = v1.read_namespaced_pod_log(
             name=pod_name,
             namespace=namespace,
-            tail_lines=1000  # Get the last 1000 lines
+            tail_lines=50  # Get the last 50 lines
         )
         return jsonify({
             'success': True,
@@ -961,3 +961,50 @@ def api_pod_health():
 @app.route('/api/pods/<namespace>/<pod_name>/restart', methods=['POST'])
 def api_restart_pod(namespace, pod_name):
     return restart_pod(v1, namespace, pod_name, logger)
+
+@app.route('/api/pods/<namespace>/<pod_name>/logs')
+def get_pod_logs(namespace, pod_name):
+    try:
+        # Get logs from the pod
+        logs = v1.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=namespace,
+            tail_lines=50  # Get the last 50 lines
+        )
+        return jsonify({
+            'success': True,
+            'logs': logs
+        })
+    except ApiException as e:
+        logger.error(f"Error getting logs for pod {pod_name} in namespace {namespace}: {e}")
+        return jsonify({
+            'success': False,
+            'error': f"API Error: {e.reason}"
+        }), 400
+    except Exception as e:
+        logger.error(f"Unexpected error getting logs for pod {pod_name}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f"Unexpected error: {str(e)}"
+        }), 500
+
+@app.route("/test-modal")
+def test_modal():
+    return send_file("test-modal.html")
+
+
+@app.route("/test-details-button")
+def test_details_button():
+    return render_template("test-details-button.html")
+
+@app.route("/pod-details-test")
+def pod_details_test():
+    return send_file("pod-details-test.html")
+
+@app.route("/pod-health-metrics-test")
+def pod_health_metrics_test():
+    return send_file("pod-health-metrics-test.html")
+
+@app.route("/pod-health-metrics-simple")
+def pod_health_metrics_simple():
+    return send_file("pod-health-metrics-simple.html")
