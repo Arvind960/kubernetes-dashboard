@@ -11,6 +11,290 @@ async function fetchPodHealthData() {
     }
 }
 
+// Function to view pod logs
+function viewPodLogs(namespace, podName) {
+    console.log(`View logs for pod ${podName} in namespace ${namespace}`);
+    
+    // Get the modal elements
+    const modal = document.getElementById('podLogsModal') || createPodLogsModal();
+    const modalTitle = document.getElementById('podLogsModalLabel');
+    const modalContent = document.getElementById('podLogsContent');
+    
+    if (!modal || !modalTitle || !modalContent) {
+        console.error('Modal elements not found');
+        alert(`Error: Could not display logs for ${podName}`);
+        return;
+    }
+    
+    // Update modal title
+    modalTitle.textContent = `Logs: ${podName}`;
+    
+    // Show loading indicator
+    modalContent.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading logs...</div>';
+    
+    // Show the modal
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+    
+    // Fetch pod logs
+    fetch(`/api/pods/${namespace}/${podName}/logs`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Format logs with line numbers
+                const logLines = data.logs.split('\n');
+                let formattedLogs = '';
+                
+                logLines.forEach((line, index) => {
+                    formattedLogs += `<div class="log-line"><span class="log-line-number">${index + 1}</span><span class="log-line-content">${escapeHtml(line)}</span></div>`;
+                });
+                
+                modalContent.innerHTML = `
+                    <div class="logs-container">
+                        ${formattedLogs || '<div class="text-center">No logs available</div>'}
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshPodLogs('${namespace}', '${podName}')">
+                            <i class="fas fa-sync"></i> Refresh Logs
+                        </button>
+                    </div>
+                `;
+            } else {
+                modalContent.innerHTML = `<div class="alert alert-danger">Error fetching logs: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching pod logs:', error);
+            modalContent.innerHTML = `<div class="alert alert-danger">Error fetching logs: ${error.message}</div>`;
+        });
+}
+
+// Function to refresh pod logs
+function refreshPodLogs(namespace, podName) {
+    viewPodLogs(namespace, podName);
+}
+
+// Helper function to create the pod logs modal if it doesn't exist
+function createPodLogsModal() {
+    const modalHtml = `
+        <div class="modal fade" id="podLogsModal" tabindex="-1" aria-labelledby="podLogsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="podLogsModalLabel">Pod Logs</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="podLogsContent"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer.firstChild);
+    
+    // Add CSS for logs
+    const style = document.createElement('style');
+    style.textContent = `
+        .logs-container {
+            max-height: 500px;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            color: #f8f8f8;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .log-line {
+            display: flex;
+            padding: 1px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-line:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .log-line-number {
+            min-width: 40px;
+            color: #888;
+            text-align: right;
+            padding-right: 10px;
+            user-select: none;
+        }
+        .log-line-content {
+            flex: 1;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    return document.getElementById('podLogsModal');
+}
+
+// Helper function to escape HTML
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Function to update the pod health UI
+
+// Function to view pod logs
+function viewPodLogs(namespace, podName) {
+    console.log(`View logs for pod ${podName} in namespace ${namespace}`);
+    
+    // Get the modal elements
+    const modal = document.getElementById('podLogsModal') || createPodLogsModal();
+    const modalTitle = document.getElementById('podLogsModalLabel');
+    const modalContent = document.getElementById('podLogsContent');
+    
+    if (!modal || !modalTitle || !modalContent) {
+        console.error('Modal elements not found');
+        alert(`Error: Could not display logs for ${podName}`);
+        return;
+    }
+    
+    // Update modal title
+    modalTitle.textContent = `Logs: ${podName}`;
+    
+    // Show loading indicator
+    modalContent.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading logs...</div>';
+    
+    // Show the modal
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+    
+    // Fetch pod logs
+    fetch(`/api/pods/${namespace}/${podName}/logs`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Format logs with line numbers
+                const logLines = data.logs.split('\n');
+                let formattedLogs = '';
+                
+                logLines.forEach((line, index) => {
+                    formattedLogs += `<div class="log-line"><span class="log-line-number">${index + 1}</span><span class="log-line-content">${escapeHtml(line)}</span></div>`;
+                });
+                
+                modalContent.innerHTML = `
+                    <div class="logs-container">
+                        ${formattedLogs || '<div class="text-center">No logs available</div>'}
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshPodLogs('${namespace}', '${podName}')">
+                            <i class="fas fa-sync"></i> Refresh Logs
+                        </button>
+                    </div>
+                `;
+            } else {
+                modalContent.innerHTML = `<div class="alert alert-danger">Error fetching logs: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching pod logs:', error);
+            modalContent.innerHTML = `<div class="alert alert-danger">Error fetching logs: ${error.message}</div>`;
+        });
+}
+
+// Function to refresh pod logs
+function refreshPodLogs(namespace, podName) {
+    viewPodLogs(namespace, podName);
+}
+
+// Helper function to create the pod logs modal if it doesn't exist
+function createPodLogsModal() {
+    const modalHtml = `
+        <div class="modal fade" id="podLogsModal" tabindex="-1" aria-labelledby="podLogsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="podLogsModalLabel">Pod Logs</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="podLogsContent"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modalContainer = document.createElement('div');
+    modalContainer.innerHTML = modalHtml;
+    document.body.appendChild(modalContainer.firstChild);
+    
+    // Add CSS for logs
+    const style = document.createElement('style');
+    style.textContent = `
+        .logs-container {
+            max-height: 500px;
+            overflow-y: auto;
+            background-color: #1e1e1e;
+            color: #f8f8f8;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .log-line {
+            display: flex;
+            padding: 1px 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-line:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .log-line-number {
+            min-width: 40px;
+            color: #888;
+            text-align: right;
+            padding-right: 10px;
+            user-select: none;
+        }
+        .log-line-content {
+            flex: 1;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    return document.getElementById('podLogsModal');
+}
+
+// Helper function to escape HTML
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Function to update the pod health UI
+
 // Function to update the pod health UI
 function updatePodHealthUI(podHealthData) {
     const hangDetectionTable = document.getElementById('hangDetectionTable');
@@ -72,6 +356,9 @@ function updatePodHealthUI(podHealthData) {
                         </button>
                         <button class="btn btn-sm btn-outline-warning" onclick="restartPod('${pod.namespace}', '${pod.name}')">
                             <i class="fas fa-sync"></i> Restart
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="viewPodLogs('${pod.namespace}', '${pod.name}')">
+                            <i class="fas fa-file-alt"></i> Log
                         </button>
                     </td>
                 `;

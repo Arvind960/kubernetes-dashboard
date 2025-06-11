@@ -3,7 +3,9 @@ import time
 import sys
 import logging
 from flask import Flask, render_template, jsonify, request
+from flask import send_file
 from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 import datetime
 from kubernetes.client.rest import ApiException
 import traceback
@@ -890,7 +892,36 @@ from pod_health_monitor import get_pod_health, restart_pod
 @app.route('/api/pod-health')
 def api_pod_health():
     return get_pod_health(v1, logger)
+@app.route("/test-log-button")
+def test_log_button():
+    return send_file("test-log-button.html")
 
+
+@app.route('/api/pods/<namespace>/<pod_name>/logs')
+def get_pod_logs(namespace, pod_name):
+    try:
+        # Get logs from the pod
+        logs = v1.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=namespace,
+            tail_lines=1000  # Get the last 1000 lines
+        )
+        return jsonify({
+            'success': True,
+            'logs': logs
+        })
+    except ApiException as e:
+        logger.error(f"Error getting logs for pod {pod_name} in namespace {namespace}: {e}")
+        return jsonify({
+            'success': False,
+            'error': f"API Error: {e.reason}"
+        }), 400
+    except Exception as e:
+        logger.error(f"Unexpected error getting logs for pod {pod_name}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f"Unexpected error: {str(e)}"
+        }), 500
 @app.route('/api/pods/<namespace>/<pod_name>/restart', methods=['POST'])
 def api_restart_pod(namespace, pod_name):
     return restart_pod(v1, namespace, pod_name, logger)
