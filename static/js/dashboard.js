@@ -58,6 +58,34 @@ function updateDashboardStats(data) {
     document.getElementById('availableDeploymentCount').textContent = `${availableDeployments} Available`;
     updateCircularProgress('deploymentStatusCircle', totalDeployments > 0 ? (availableDeployments / totalDeployments) * 100 : 0);
     
+    // Update daemonset stats
+    const totalDaemonSets = data.daemonsets ? data.daemonsets.length : 0;
+    const readyDaemonSets = data.daemonsets ? data.daemonsets.filter(ds => ds.status === 'Ready').length : 0;
+    document.getElementById('daemonSetCount').textContent = totalDaemonSets;
+    document.getElementById('readyDaemonSetCount').textContent = `${readyDaemonSets} Ready`;
+    document.getElementById('notReadyDaemonSetCount').textContent = `${totalDaemonSets - readyDaemonSets} Not Ready`;
+    updateCircularProgress('daemonSetStatusCircle', totalDaemonSets > 0 ? (readyDaemonSets / totalDaemonSets) * 100 : 0);
+    
+    // Update statefulset stats
+    const totalStatefulSets = data.statefulsets ? data.statefulsets.length : 0;
+    const readyStatefulSets = data.statefulsets ? data.statefulsets.filter(sts => sts.status === 'Ready').length : 0;
+    document.getElementById('statefulSetCount').textContent = totalStatefulSets;
+    document.getElementById('readyStatefulSetCount').textContent = `${readyStatefulSets} Ready`;
+    document.getElementById('scalingStatefulSetCount').textContent = `${totalStatefulSets - readyStatefulSets} Scaling`;
+    updateCircularProgress('statefulSetStatusCircle', totalStatefulSets > 0 ? (readyStatefulSets / totalStatefulSets) * 100 : 0);
+    
+    // Update container stats
+    if (data.container_stats) {
+        const totalContainers = data.container_stats.total || 0;
+        const runningContainers = data.container_stats.running || 0;
+        const notRunningContainers = totalContainers - runningContainers;
+        
+        document.getElementById('containerCount').textContent = totalContainers;
+        document.getElementById('runningContainerCount').textContent = `${runningContainers} Running`;
+        document.getElementById('notRunningContainerCount').textContent = `${notRunningContainers} Not Running`;
+        updateCircularProgress('containerStatusCircle', totalContainers > 0 ? (runningContainers / totalContainers) * 100 : 0);
+    }
+    
     // Update resource usage
     if (data.resource_usage) {
         const cpuUsage = data.resource_usage.cpu ? Math.round((data.resource_usage.cpu.used / data.resource_usage.cpu.total) * 100) : 0;

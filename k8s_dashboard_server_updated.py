@@ -2,8 +2,7 @@ import os
 import time
 import sys
 import logging
-from flask import Flask, render_template, jsonify, request
-from flask import send_file
+from flask import Flask, render_template, jsonify, request, send_file
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 import datetime
@@ -416,6 +415,75 @@ def get_data():
                 "paused": deployment.spec.paused
             })
         
+        # Get daemonsets
+        daemonsets = []
+        daemonset_list = apps_v1.list_daemon_set_for_all_namespaces(watch=False)
+        for ds in daemonset_list.items:
+            # Get daemonset creation time
+            creation_timestamp = ds.metadata.creation_timestamp
+            
+            # Format creation time
+            if creation_timestamp:
+                creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                # Calculate age
+                age = calculate_age(creation_timestamp)
+            else:
+                creation_time = "Unknown"
+                age = "Unknown"
+                
+            # Calculate status
+            if ds.status.number_ready == ds.status.desired_number_scheduled and ds.status.desired_number_scheduled > 0:
+                status = "Ready"
+            else:
+                status = f"Not Ready ({ds.status.number_ready}/{ds.status.desired_number_scheduled})"
+                
+            daemonsets.append({
+                "name": ds.metadata.name,
+                "namespace": ds.metadata.namespace,
+                "desired": ds.status.desired_number_scheduled,
+                "current": ds.status.current_number_scheduled,
+                "ready": ds.status.number_ready,
+                "available": ds.status.number_available if hasattr(ds.status, 'number_available') else 0,
+                "status": status,
+                "creation_time": creation_time,
+                "age": age
+            })
+            
+        # Get statefulsets
+        statefulsets = []
+        statefulset_list = apps_v1.list_stateful_set_for_all_namespaces(watch=False)
+        for sts in statefulset_list.items:
+            # Get statefulset creation time
+            creation_timestamp = sts.metadata.creation_timestamp
+            
+            # Format creation time
+            if creation_timestamp:
+                creation_time = creation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                # Calculate age
+                age = calculate_age(creation_timestamp)
+            else:
+                creation_time = "Unknown"
+                age = "Unknown"
+                
+            # Calculate status
+            ready_replicas = sts.status.ready_replicas if hasattr(sts.status, 'ready_replicas') else 0
+            replicas = sts.spec.replicas or 0
+            
+            if ready_replicas == replicas and replicas > 0:
+                status = "Ready"
+            else:
+                status = f"Scaling ({ready_replicas}/{replicas})"
+                
+            statefulsets.append({
+                "name": sts.metadata.name,
+                "namespace": sts.metadata.namespace,
+                "replicas": replicas,
+                "ready_replicas": ready_replicas,
+                "status": status,
+                "creation_time": creation_time,
+                "age": age
+            })
+        
         # Calculate resource usage
         cpu_capacity = 0
         cpu_allocatable = 0
@@ -542,12 +610,24 @@ def get_data():
             node["cpu"] = f"{node['cpu_allocatable']}/{node['cpu_capacity']}"
             node["memory"] = format_memory(node["memory_allocatable"], node["memory_capacity"])
         
+        # Calculate container count
+        container_count = 0
+        running_container_count = 0
+        for pod in pods:
+            if pod.get('containers'):
+                container_count += len(pod.get('containers'))
+                for container in pod.get('containers'):
+                    if container.get('state') == 'Running':
+                        running_container_count += 1
+        
         return jsonify({
             "nodes": nodes,
             "namespaces": namespaces,
             "pods": pods,
             "services": services,
             "deployments": deployments,
+            "daemonsets": daemonsets,
+            "statefulsets": statefulsets,
             "resource_usage": {
                 "cpu": {
                     "used": cpu_used,
@@ -557,6 +637,10 @@ def get_data():
                     "used": memory_used,
                     "total": memory_capacity
                 }
+            },
+            "container_stats": {
+                "total": container_count,
+                "running": running_container_count
             },
             "cluster_health": cluster_health,
             "alerts": alerts,
@@ -904,11 +988,14 @@ def test_log_button():
 @app.route('/api/pods/<namespace>/<pod_name>/logs')
 def get_pod_logs(namespace, pod_name):
     try:
+        # Get the limit parameter, default to 50 if not provided
+        limit = request.args.get('limit', default=50, type=int)
+        
         # Get logs from the pod
         logs = v1.read_namespaced_pod_log(
             name=pod_name,
             namespace=namespace,
-            tail_lines=50  # Get the last 50 lines
+            tail_lines=limit  # Get the last N lines based on limit parameter
         )
         return jsonify({
             'success': True,
@@ -955,6 +1042,27 @@ def get_daemonsets():
         logger.error(f"Error getting DaemonSets: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/statefulsets')
+def get_statefulsets():
+    try:
+        statefulsets = []
+        sts_list = apps_v1.list_stateful_set_for_all_namespaces()
+        
+        for sts in sts_list.items:
+            statefulsets.append({
+                'name': sts.metadata.name,
+                'namespace': sts.metadata.namespace,
+                'replicas': sts.spec.replicas,
+                'currentReplicas': sts.status.current_replicas if hasattr(sts.status, 'current_replicas') else 0,
+                'readyReplicas': sts.status.ready_replicas if hasattr(sts.status, 'ready_replicas') else 0,
+                'updateRevision': sts.status.update_revision if hasattr(sts.status, 'update_revision') else 'N/A'
+            })
+        
+        return jsonify(statefulsets)
+    except Exception as e:
+        logger.error(f"Error getting StatefulSets: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # Import pod health monitoring module
 from pod_health_monitor import get_pod_health, restart_pod
 
@@ -966,31 +1074,6 @@ def api_pod_health():
 def api_restart_pod(namespace, pod_name):
     return restart_pod(v1, namespace, pod_name, logger)
 
-@app.route('/api/pods/<namespace>/<pod_name>/logs')
-def get_pod_logs(namespace, pod_name):
-    try:
-        # Get logs from the pod
-        logs = v1.read_namespaced_pod_log(
-            name=pod_name,
-            namespace=namespace,
-            tail_lines=50  # Get the last 50 lines
-        )
-        return jsonify({
-            'success': True,
-            'logs': logs
-        })
-    except ApiException as e:
-        logger.error(f"Error getting logs for pod {pod_name} in namespace {namespace}: {e}")
-        return jsonify({
-            'success': False,
-            'error': f"API Error: {e.reason}"
-        }), 400
-    except Exception as e:
-        logger.error(f"Unexpected error getting logs for pod {pod_name}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f"Unexpected error: {str(e)}"
-        }), 500
 
 @app.route("/test-modal")
 def test_modal():

@@ -20,6 +20,24 @@
             --box-shadow: 0 4px 6px rgba(50, 108, 229, 0.08);
         }
         
+        .logs-container {
+            background-color: #282c34;
+            color: #abb2bf;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .logs-pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+           }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f7fa;
@@ -27,7 +45,7 @@
             margin: 0;
             padding: 0;
         }
-        
+
         .sidebar {
             position: fixed;
             top: 0;
@@ -40,22 +58,22 @@
             z-index: 1000;
             transition: all 0.3s;
         }
-        
+
         .sidebar-header {
             padding: 0 15px 20px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
         }
-        
+
         .sidebar-header img {
             max-width: 80%;
             height: auto;
         }
-        
+
         .sidebar-menu {
             padding: 20px 0;
         }
-        
+
         .sidebar-menu a {
             display: block;
             padding: 12px 20px;
@@ -64,25 +82,25 @@
             transition: all 0.3s;
             border-left: 3px solid transparent;
         }
-        
+
         .sidebar-menu a:hover, .sidebar-menu a.active {
             background: rgba(255, 255, 255, 0.05);
             color: white;
             border-left-color: var(--primary-color);
         }
-        
+
         .sidebar-menu a i {
             margin-right: 10px;
             width: 20px;
             text-align: center;
         }
-        
+
         .main-content {
             margin-left: 240px;
             padding: 20px;
             transition: all 0.3s;
         }
-        
+
         .dashboard-header {
             background: white;
             padding: 20px;
@@ -93,7 +111,7 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .dashboard-title h1 {
             margin: 0;
             font-size: 24px;
@@ -102,23 +120,23 @@
             display: flex;
             align-items: center;
         }
-        
+
         .dashboard-title h1 img {
             height: 32px;
             margin-right: 10px;
         }
-        
+
         .dashboard-actions {
             display: flex;
             align-items: center;
         }
-        
+
         .refresh-time {
             margin-right: 15px;
             color: #666;
             font-size: 14px;
         }
-        
+
         .btn-refresh {
             background-color: var(--primary-color);
             color: white;
@@ -129,33 +147,33 @@
             align-items: center;
             transition: all 0.3s;
         }
-        
+
         .btn-refresh:hover {
             background-color: #2857b9;
             transform: translateY(-2px);
         }
-        
+
         .btn-refresh i {
             margin-right: 8px;
         }
-        
+
         .refresh-spinner {
             animation: spin 1s linear infinite;
             display: none;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         .stats-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 20px;
         }
-        
+
         .stat-card {
             background: white;
             border-radius: var(--border-radius);
@@ -165,12 +183,12 @@
             align-items: center;
             transition: all 0.3s;
         }
-        
+
         .stat-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 15px rgba(50, 108, 229, 0.12);
         }
-        
+
         .stat-icon {
             width: 60px;
             height: 60px;
@@ -181,49 +199,61 @@
             justify-content: center;
             margin-right: 15px;
         }
-        
+
         .stat-icon img {
             width: 32px;
             height: 32px;
         }
-        
+
         .stat-icon.nodes {
             background: rgba(50, 108, 229, 0.1);
         }
-        
+
         .stat-icon.pods {
             background: rgba(61, 186, 140, 0.1);
         }
-        
+
         .stat-icon.deployments {
             background: rgba(255, 107, 107, 0.1);
         }
-        
+
         .stat-icon.services {
             background: rgba(255, 190, 11, 0.1);
         }
-        
+
         .stat-icon.namespaces {
             background: rgba(153, 102, 255, 0.1);
         }
         
+        .stat-icon.containers {
+            background: rgba(230, 126, 34, 0.1);
+        }
+        
+        .stat-icon.daemonsets {
+            background: rgba(142, 68, 173, 0.1);
+        }
+        
+        .stat-icon.statefulsets {
+            background: rgba(22, 160, 133, 0.1);
+        }
+
         .stat-info {
             flex: 1;
         }
-        
+
         .stat-value {
             font-size: 28px;
             font-weight: 700;
             margin: 0;
             line-height: 1.2;
         }
-        
+
         .stat-label {
             color: #666;
             font-size: 14px;
             margin: 0;
         }
-        
+
         .card {
             background: white;
             border: none;
@@ -232,7 +262,7 @@
             margin-bottom: 20px;
             overflow: hidden;
         }
-        
+
         .card-header {
             background: white;
             border-bottom: 1px solid #eee;
@@ -241,7 +271,7 @@
             align-items: center;
             justify-content: space-between;
         }
-        
+
         .card-title {
             margin: 0;
             font-size: 18px;
@@ -250,131 +280,131 @@
             display: flex;
             align-items: center;
         }
-        
+
         .card-title img {
             width: 24px;
             height: 24px;
             margin-right: 10px;
         }
-        
+
         .card-body {
             padding: 20px;
         }
-        
+
         .health-status {
             display: flex;
             align-items: center;
             margin-bottom: 20px;
         }
-        
+
         .health-indicator {
             width: 12px;
             height: 12px;
             border-radius: 50%;
             margin-right: 10px;
         }
-        
+
         .health-indicator.healthy {
             background-color: var(--secondary-color);
         }
-        
+
         .health-indicator.warning {
             background-color: var(--warning-color);
         }
-        
+
         .health-indicator.error {
             background-color: var(--accent-color);
         }
-        
+
         .health-indicator.critical {
             background-color: #ff0000;
         }
-        
+
         .health-text {
             font-weight: 500;
         }
-        
+
         .health-text.healthy {
             color: var(--secondary-color);
         }
-        
+
         .health-text.warning {
             color: var(--warning-color);
         }
-        
+
         .health-text.error {
             color: var(--accent-color);
         }
-        
+
         .health-text.critical {
             color: #ff0000;
         }
-        
+
         .resource-usage {
             margin-top: 20px;
         }
-        
+
         .resource-title {
             font-size: 16px;
             font-weight: 600;
             margin-bottom: 15px;
             color: var(--dark-color);
         }
-        
+
         .resource-item {
             margin-bottom: 15px;
         }
-        
+
         .resource-header {
             display: flex;
             justify-content: space-between;
             margin-bottom: 5px;
         }
-        
+
         .resource-label {
             font-size: 14px;
             color: #666;
         }
-        
+
         .resource-value {
             font-size: 14px;
             font-weight: 500;
         }
-        
+
         .progress {
             height: 8px;
             border-radius: 4px;
             background-color: #eee;
             margin-bottom: 5px;
         }
-        
+
         .progress-bar {
             border-radius: 4px;
         }
-        
+
         .progress-bar.cpu {
             background-color: var(--primary-color);
         }
-        
+
         .progress-bar.memory {
             background-color: var(--secondary-color);
         }
-        
+
         .chart-container {
             height: 250px;
             margin-top: 20px;
         }
-        
+
         .table-container {
             overflow-x: auto;
         }
-        
+
         .k8s-table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
         }
-        
+
         .k8s-table th {
             background-color: #f8f9fa;
             color: #666;
@@ -385,30 +415,30 @@
             padding: 12px 15px;
             border-bottom: 2px solid #eee;
         }
-        
+
         .k8s-table td {
             padding: 12px 15px;
             border-bottom: 1px solid #eee;
             vertical-align: middle;
         }
-        
+
         .k8s-table tbody tr:hover {
             background-color: rgba(50, 108, 229, 0.03);
         }
-        
+
         .k8s-table .resource-name {
             font-weight: 500;
             color: var(--dark-color);
             display: flex;
             align-items: center;
         }
-        
+
         .k8s-table .resource-name img {
             width: 20px;
             height: 20px;
             margin-right: 8px;
         }
-        
+
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -417,22 +447,22 @@
             font-size: 12px;
             font-weight: 500;
         }
-        
+
         .status-badge.running {
             background-color: rgba(61, 186, 140, 0.1);
             color: var(--secondary-color);
         }
-        
+
         .status-badge.pending {
             background-color: rgba(255, 190, 11, 0.1);
             color: var(--warning-color);
         }
-        
+
         .status-badge.failed {
             background-color: rgba(255, 107, 107, 0.1);
             color: var(--accent-color);
         }
-        
+
         .search-container {
             background: white;
             border-radius: var(--border-radius);
@@ -440,40 +470,40 @@
             margin-bottom: 20px;
             box-shadow: var(--box-shadow);
         }
-        
+
         .search-row {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
         }
-        
+
         .search-input {
             flex: 1;
             min-width: 200px;
         }
-        
+
         .search-select {
             width: 200px;
         }
-        
+
         .form-control, .form-select {
             border: 1px solid #ddd;
             border-radius: var(--border-radius);
             padding: 8px 12px;
             transition: all 0.3s;
         }
-        
+
         .form-control:focus, .form-select:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 0.25rem rgba(50, 108, 229, 0.25);
         }
-        
+
         .input-group-text {
             background-color: #f8f9fa;
             border: 1px solid #ddd;
             border-right: none;
         }
-        
+
         .alert-card {
             border-left: 4px solid;
             padding: 15px;
@@ -482,42 +512,42 @@
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        
+
         .alert-card.critical {
             border-left-color: #ff0000;
         }
-        
+
         .alert-card.error {
             border-left-color: var(--accent-color);
         }
-        
+
         .alert-card.warning {
             border-left-color: var(--warning-color);
         }
-        
+
         .alert-title {
             font-weight: 600;
             margin-bottom: 5px;
             display: flex;
             align-items: center;
         }
-        
+
         .alert-title i {
             margin-right: 8px;
         }
-        
+
         .alert-message {
             margin-bottom: 5px;
             color: #666;
         }
-        
+
         .alert-meta {
             font-size: 12px;
             color: #999;
             display: flex;
             justify-content: space-between;
         }
-        
+
         /* Node Type Circle Icons Styles */
         .cluster-nodes-overview {
             margin-top: 20px;
@@ -526,102 +556,102 @@
             background-color: white;
             border-radius: 8px;
         }
-        
+
         .node-type-indicators {
             display: flex;
             justify-content: center;
             margin-top: 15px;
             margin-bottom: 15px;
         }
-        
+
         .node-type {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-        
+
         .combined-circle-icon {
             width: 120px;
             height: 120px;
             margin-bottom: 10px;
             position: relative;
         }
-        
+
         .node-count {
             font-size: 24px;
             font-weight: bold;
         }
-        
+
         .node-label {
             font-size: 14px;
             color: #666;
         }
-        
+
         .node-legend {
             display: flex;
             justify-content: center;
             gap: 20px;
         }
-        
+
         .legend-item {
             display: flex;
             align-items: center;
         }
-        
+
         .legend-color {
             width: 15px;
             height: 15px;
             margin-right: 5px;
             border-radius: 3px;
         }
-        
+
         .legend-color.master {
             background-color: #326ce5; /* Kubernetes blue */
         }
-        
+
         .legend-color.worker {
             background-color: #3dba8c; /* Green */
         }
-        
+
         .legend-label {
             font-size: 14px;
             color: #666;
         }
-        
+
         @media (max-width: 992px) {
             .sidebar {
                 width: 70px;
                 overflow: hidden;
             }
-            
+
             .sidebar-header {
                 padding: 10px;
             }
-            
+
             .sidebar-menu a span {
                 display: none;
             }
-            
+
             .sidebar-menu a i {
                 margin-right: 0;
                 font-size: 18px;
             }
-            
+
             .main-content {
                 margin-left: 70px;
             }
         }
-        
+
         @media (max-width: 768px) {
             .stats-container {
                 grid-template-columns: repeat(auto-fit, minmax(100%, 1fr));
             }
-            
+
             .dashboard-header {
                 flex-direction: column;
                 align-items: flex-start;
             }
-            
+
             .dashboard-actions {
                 margin-top: 15px;
                 width: 100%;
@@ -629,303 +659,239 @@
             }
         }
     </style>
-    <script src="/static/js/pod-actions.js"></script>
+     <script src="/static/js/pod-actions.js"></script>
 </head>
 <body>
-    <div class="sidebar">
+     <div class="sidebar">
         <div class="sidebar-header">
-            <h3>COM-T</h3>
+          <h3>COM-T</h3>
         </div>
         <div class="sidebar-menu">
-            <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
-            <a href="#nodes-section"><i class="fas fa-server"></i> <span>Nodes</span></a>
-            <a href="#pods-section"><i class="fas fa-cubes"></i> <span>Pods</span></a>
-            <a href="#deployments-section"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
-            <a href="#services-section"><i class="fas fa-network-wired"></i> <span>Services</span></a>
-            <a href="#namespaces-section"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
-            <a href="#alerts-section"><i class="fas fa-exclamation-triangle"></i> <span>Alerts</span></a>
+            <a class="active" href="#" onclick="showSection('dashboard-section')"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+            <a href="#" onclick="showSection('nodes-section')"><i class="fas fa-server"></i> <span>Nodes</span></a>
+            <a href="#" onclick="showSection('pods-section')"><i class="fas fa-cubes"></i> <span>Pods</span></a>
+            <a href="#" onclick="showSection('deployments-section')"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
+            <a href="#" onclick="showSection('services-section')"><i class="fas fa-network-wired"></i> <span>Services</span></a>
+            <a href="#" onclick="showSection('namespaces-section')"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
+            <a href="#" onclick="showSection('alerts-section')"><i class="fas fa-exclamation-triangle"></i> <span>Alerts</span></a>
+            <a href="http://192.168.47.138:8889" target="_blank"><i class="fas fa-robot"></i> <span>Chatbot</span></a>
         </div>
     </div>
-    
-    <div class="main-content">
-        <div class="dashboard-header">
-            <div class="dashboard-title">
-                <h1>
-                    ComKube Observability & Management Tool
-                </h1>
-                <p class="mb-0 text-muted">{{ running_mode }}</p>
-            </div>
-            <div class="dashboard-actions">
-                <div class="refresh-time">
-                    <span id="lastUpdated">Last updated: Never</span>
-                </div>
-                <button id="refreshBtn" class="btn-refresh">
-                    <i class="fas fa-sync-alt"></i>
-                    <span>Refresh</span>
-                    <i class="fas fa-spinner refresh-spinner ms-2"></i>
-                </button>
-            </div>
-        </div>
-        <!-- Cluster Overview -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-heartbeat"></i>
-                            Cluster Health
-                        </h2>
+        <div class="main-content">
+            <div id="dashboard-section">
+                <div class="dashboard-header">
+                    <div class="dashboard-title">
+                        <h1>
+                             ComKube Observability & Management Tool
+                        </h1>
+                        <p class="mb-0 text-muted">{{ running_mode }}</p>
                     </div>
-                    <div class="card-body">
-                        <div id="clusterHealth"></div>
-                        
-                        <!-- Node Overview with Combined Circle Icon -->
-                        <div class="cluster-nodes-overview">
-                            <h3 class="resource-title">Cluster Nodes</h3>
-                            <div class="node-type-indicators">
-                                <div class="node-type">
-                                    <div class="combined-circle-icon" id="nodeDistributionCircle">
-                                        <!-- The circle will be rendered with SVG -->
-                                    </div>
-                                    <span class="node-count" id="totalNodeCount">0</span>
-                                    <span class="node-label">Total Nodes</span>
-                                </div>
-                            </div>
-                            <div class="node-legend">
-                                <div class="legend-item">
-                                    <div class="legend-color master"></div>
-                                    <span class="legend-label">Master Nodes: <span id="masterNodeCount">0</span></span>
-                                </div>
-                                <div class="legend-item">
-                                    <div class="legend-color worker"></div>
-                                    <span class="legend-label">Worker Nodes: <span id="workerNodeCount">0</span></span>
-                                </div>
-                            </div>
+                    <div class="dashboard-actions">
+                        <div class="refresh-time">
+                            <span id="lastUpdated">Last updated: Never</span>
                         </div>
-                        
-                        <div class="resource-usage">
-                            <h3 class="resource-title">Resource Usage</h3>
-                            
-                            <div class="resource-item">
-                                <div class="resource-header">
-                                    <span class="resource-label">CPU Usage</span>
-                                    <span id="cpuText" class="resource-value">0/0 cores (0%)</span>
-                                </div>
-                                <div class="progress">
-                                    <div id="cpuProgress" class="progress-bar cpu" role="progressbar" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="resource-item">
-                                <div class="resource-header">
-                                    <span class="resource-label">Memory Usage</span>
-                                    <span id="memoryText" class="resource-value">0/0 GB (0%)</span>
-                                </div>
-                                <div class="progress">
-                                    <div id="memoryProgress" class="progress-bar memory" role="progressbar" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
+                        <button class="btn-refresh" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Refresh</span>
+                            <i class="fas fa-spinner refresh-spinner ms-2"></i>
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Stats Overview -->
-        <div class="stats-container">
-            <div class="stat-card">
-                <div class="stat-icon nodes">
-                    <i class="fas fa-server" style="color: #326ce5;"></i>
-                </div>
-                <div class="stat-info">
-                    <h2 id="nodeCount" class="stat-value">0</h2>
-                    <p class="stat-label">Nodes</p>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon pods">
-                    <i class="fas fa-cubes" style="color: #3dba8c;"></i>
-                </div>
-                <div class="stat-info">
-                    <h2 id="podCount" class="stat-value">0</h2>
-                    <p class="stat-label">Pods</p>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon deployments">
-                    <i class="fas fa-layer-group" style="color: #ff6b6b;"></i>
-                </div>
-                <div class="stat-info">
-                    <h2 id="deploymentCount" class="stat-value">0</h2>
-                    <p class="stat-label">Deployments</p>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon services">
-                    <i class="fas fa-network-wired" style="color: #ffbe0b;"></i>
-                </div>
-                <div class="stat-info">
-                    <h2 id="serviceCount" class="stat-value">0</h2>
-                    <p class="stat-label">Services</p>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon namespaces">
-                    <i class="fas fa-project-diagram" style="color: #9966ff;"></i>
-                </div>
-                <div class="stat-info">
-                    <h2 id="namespaceCount" class="stat-value">0</h2>
-                    <p class="stat-label">Namespaces</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Pod Status Overview -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-cubes"></i>
-                            Pod Status Overview
-                        </h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background: rgba(61, 186, 140, 0.1);">
-                                        <i class="fas fa-check-circle" style="color: #3dba8c;"></i>
+                <!-- Cluster Overview -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">
+                                    <i class="fas fa-heartbeat"></i>
+                                    Cluster Health
+                                </h2>
+                            </div>
+                            <div class="card-body">
+                                <div id="clusterHealth"></div>
+                                <!-- Node Overview with Combined Circle Icon -->
+                                <div class="cluster-nodes-overview">
+                                    <h3 class="resource-title">Cluster Nodes</h3>
+                                    <div class="node-type-indicators">
+                                        <div class="node-type">
+                                            <div class="combined-circle-icon" id="nodeDistributionCircle">
+                                            <!-- The circle will be rendered with SVG -->
+                                            </div>
+                                                <span class="node-count" id="totalNodeCount">0</span>
+                                                <span class="node-label">Total Nodes</span>
+                                        </div>
                                     </div>
-                                    <div class="stat-info">
-                                        <h2 id="runningPodCount" class="stat-value">0</h2>
-                                        <p class="stat-label">Running Pods</p>
+                                    <div class="node-legend">
+                                        <div class="legend-item">
+                                            <div class="legend-color master"></div>
+                                                <span class="legend-label">Master Nodes: <span id="masterNodeCount">0</span></span>
+                                            </div>
+                                            <div class="legend-item">
+                                            <div class="legend-color worker"></div>
+                                                <span class="legend-label">Worker Nodes: <span id="workerNodeCount">0</span></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="resource-usage">
+                                        <h3 class="resource-title">Resource Usage</h3>
+                                        <div class="resource-item">
+                                            <div class="resource-header">
+                                                <span class="resource-label">CPU Usage</span>
+                                                <span class="resource-value" id="cpuText">0/0 cores (0%)</span>
+                                            </div>
+                                            <div class="progress">
+                                                <div class="progress-bar cpu" id="cpuProgress" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="resource-item">
+                                            <div class="resource-header">
+                                                <span class="resource-label">Memory Usage</span>
+                                                <span class="resource-value" id="memoryText">0/0 GB (0%)</span>
+                                            </div>
+                                            <div class="progress">
+                                                <div class="progress-bar memory" id="memoryProgress" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background: rgba(255, 190, 11, 0.1);">
-                                        <i class="fas fa-clock" style="color: #ffbe0b;"></i>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h2 id="pendingPodCount" class="stat-value">0</h2>
-                                        <p class="stat-label">Pending Pods</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background: rgba(255, 107, 107, 0.1);">
-                                        <i class="fas fa-exclamation-circle" style="color: #ff6b6b;"></i>
-                                    </div>
-                                    <div class="stat-info">
-                                        <h2 id="failedPodCount" class="stat-value">0</h2>
-                                        <p class="stat-label">Failed Pods</p>
-                                    </div>
-                                </div>
-                            </div>
+                           </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Namespace Overview -->
-        <!-- Pod Health Monitoring Section -->
-        <div class="row mb-4">
-          <div class="col-md-12">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">
-                  <i class="fas fa-heartbeat"></i>
-                  Pod Health Monitor
-                </h2>
-              </div>
-              <div class="card-body">
-                <div class="pod-health-overview">
-                  <div class="health-metrics-container" id="podHealthMetrics">
-                    <!-- Health metrics will be populated here -->
-                  </div>
-                  
-                  <div class="hang-detection-panel">
-                    <h4>Potential Hang Detection</h4>
-                    <div class="table-container">
-                      <table class="k8s-table">
-                        <thead>
-                          <tr>
-                            <th>Pod Name</th>
-                            <th>Namespace</th>
-                            <th>Issue Type</th>
-                            <th>Duration</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody id="hangDetectionTable">
-                          <!-- Hang detection results will be populated here -->
-                        </tbody>
-                      </table>
+                    <!-- Stats Overview -->
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-icon nodes">
+                                <i class="fas fa-server" style="color: #326ce5;"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h2 class="stat-value" id="nodeCount">0</h2>
+                                <p class="stat-label">Nodes</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon pods">
+                                <i class="fas fa-cubes" style="color: #3dba8c;"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h2 class="stat-value" id="podCount">0</h2>
+                                <p class="stat-label">Pods</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon deployments">
+                                <i class="fas fa-layer-group" style="color: #ff6b6b;"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h2 class="stat-value" id="deploymentCount">0</h2>
+                                <p class="stat-label">Deployments</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon services">
+                                <i class="fas fa-network-wired" style="color: #ffbe0b;"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h2 class="stat-value" id="serviceCount">0</h2>
+                                <p class="stat-label">Services</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon namespaces">
+                                <i class="fas fa-project-diagram" style="color: #9966ff;"></i>
+                           </div>
+                           <div class="stat-info">
+                                <h2 class="stat-value" id="namespaceCount">0</h2>
+                                <p class="stat-label">Namespaces</p>
+                           </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon containers">
+                                <i class="fas fa-box" style="color: #e67e22;"></i>
+                           </div>
+                           <div class="stat-info">
+                                <h2 class="stat-value" id="containerCount">0</h2>
+                                <p class="stat-label">Containers</p>
+                           </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon daemonsets">
+                                <i class="fas fa-robot" style="color: #8e44ad;"></i>
+                           </div>
+                           <div class="stat-info">
+                                <h2 class="stat-value" id="daemonSetCount">0</h2>
+                                <p class="stat-label">DaemonSets</p>
+                           </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon statefulsets">
+                                <i class="fas fa-database" style="color: #16a085;"></i>
+                           </div>
+                           <div class="stat-info">
+                                <h2 class="stat-value" id="statefulSetCount">0</h2>
+                                <p class="stat-label">StatefulSets</p>
+                           </div>
+                        </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="namespaces-section" class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-project-diagram"></i>
-                            Namespace Overview
-                        </h2>
+                    <!-- Pod Status Overview -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <!-- Namespaces Table -->
-                        <div class="table-container">
-                            <table class="k8s-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Status</th>
-                                        <th>Age</th>
-                                        <th>Pods</th>
-                                        <th>Services</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="namespacesTable"></tbody>
-                            </table>
+                    <!-- Namespace Overview -->
+                    <!-- Pod Health Monitoring Section -->
+                    <div class="row mb-4">
+                       <div class="col-md-12">
+                       </div>
+                    </div>
+                </div>
+                <div class="row mb-4" id="namespaces-section">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">
+                                    <i class="fas fa-project-diagram"></i>
+                                    Namespace Overview
+                                </h2>
+                            </div>
+                            <div class="card-body">
+                            <!-- Namespaces Table -->
+                            <div class="table-container">
+                                <table class="k8s-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Status</th>
+                                            <th>Age</th>
+                                            <th>Pods</th>
+                                            <th>Services</th>
+                                        </tr>
+                                   </thead>
+                                   <tbody id="namespacesTable"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Node Overview -->
-        <div id="nodes-section" class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-server"></i>
-                            Node Overview
-                        </h2>
-                    </div>
-                    <div class="card-body">
+            <!-- Node Overview -->
+            <div class="row mb-4" id="nodes-section">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">
+                                <i class="fas fa-server"></i>
+                                Node Overview
+                            </h2>
+                        </div>
+                        <div class="card-body">
                         <!-- Version Information -->
                         <div class="version-info mb-4">
                             <div class="row">
                                 <div class="col-md-4">
-                                    <div class="version-item">
+                                   <div class="version-item">
                                         <span class="version-label"><i class="fas fa-server me-2"></i>Kubernetes Version:</span>
                                         <span class="version-value" id="kubernetesVersion">Loading...</span>
-                                    </div>
+                                   </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="version-item">
@@ -960,152 +926,275 @@
             </div>
         </div>
         <!-- Pods Section -->
-        <div id="pods-section" class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-cubes"></i>
-                            Pods
-                        </h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="search-container">
-                            <div class="search-row">
-                                <div class="search-input">
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                        <input type="text" id="podSearch" class="form-control" placeholder="Search pods...">
-                                    </div>
+        <div class="row mb-4" id="pods-section">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-cubes"></i>
+                        Pod Status Overview
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                           <div class="stat-card">
+                               <div class="stat-icon" style="background: rgba(61, 186, 140, 0.1);">
+                                    <i class="fas fa-check-circle" style="color: #3dba8c;"></i>
                                 </div>
-                                <div class="search-select">
-                                    <select id="namespaceFilter" class="form-select">
-                                        <option value="all">All Namespaces</option>
-                                    </select>
+                                <div class="stat-info">
+                                    <h2 class="stat-value" id="runningPodCount">0</h2>
+                                    <p class="stat-label">Running Pods</p>
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="table-container">
-                            <table class="k8s-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Namespace</th>
-                                        <th>Status</th>
-                                        <th>Ready</th>
-                                        <th>Restarts</th>
-                                        <th>Age</th>
-                                        <th>CPU</th>
-                                        <th>Memory</th>
-                                        <th>Node</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="podsTable"></tbody>
-                            </table>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(255, 190, 11, 0.1);">
+                                    <i class="fas fa-clock" style="color: #ffbe0b;"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h2 class="stat-value" id="pendingPodCount">0</h2>
+                                    <p class="stat-label">Pending Pods</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(255, 107, 107, 0.1);">
+                                    <i class="fas fa-exclamation-circle" style="color: #ff6b6b;"></i>
+                                </div>
+                                <div class="stat-info">
+                                    <h2 class="stat-value" id="failedPodCount">0</h2>
+                                    <p class="stat-label">Failed Pods</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div><div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-heartbeat"></i>
+                    Pod Health Monitor
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="pod-health-overview">
+                    <div class="health-metrics-container" id="podHealthMetrics">
+                    <!-- Health metrics will be populated here -->
+                    </div>
+                    <div class="hang-detection-panel">
+                        <h4>Potential Hang Detection</h4>
+                            <div class="table-container">
+                                <table class="k8s-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Pod Name</th>
+                                            <th>Namespace</th>
+                                            <th>Issue Type</th>
+                                            <th>Duration</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hangDetectionTable">
+                                    <!-- Hang detection results will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Deployments Section -->
-        <div id="deployments-section" class="row mb-4">
+            
+            <!-- Container Section -->
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-layer-group"></i>
-                            Deployments
+                            <i class="fas fa-box"></i>
+                            Container Status Overview
                         </h2>
                     </div>
                     <div class="card-body">
-                        <div class="table-container">
-                            <table class="k8s-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Namespace</th>
-                                        <th>Replicas</th>
-                                        <th>Age</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="deploymentsTable"></tbody>
-                            </table>
+                        <div class="row">
+                            <div class="col-md-4">
+                               <div class="stat-card">
+                                   <div class="stat-icon" style="background: rgba(230, 126, 34, 0.1);">
+                                        <i class="fas fa-check-circle" style="color: #e67e22;"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h2 class="stat-value" id="runningContainerCount">0</h2>
+                                        <p class="stat-label">Running Containers</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-icon" style="background: rgba(255, 190, 11, 0.1);">
+                                        <i class="fas fa-exclamation-triangle" style="color: #ffbe0b;"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h2 class="stat-value" id="notRunningContainerCount">0</h2>
+                                        <p class="stat-label">Not Running Containers</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-card">
+                                    <div class="stat-icon" style="background: rgba(50, 108, 229, 0.1);">
+                                        <i class="fas fa-box" style="color: #326ce5;"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h2 class="stat-value" id="totalContainerCount">0</h2>
+                                        <p class="stat-label">Total Containers</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Services Section -->
-        <div id="services-section" class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-network-wired"></i>
-                            Services
-                        </h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-container">
-                            <table class="k8s-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Namespace</th>
-                                        <th>Type</th>
-                                        <th>Cluster IP</th>
-                                        <th>External IP</th>
-                                        <th>Age</th>
-                                        <th>Ports</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="servicesTable"></tbody>
-                            </table>
-                        </div>
-                    </div>
+            </div><div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-cubes"></i>
+                        Pods
+                    </h2>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Alerts Section - NOW AT THE BOTTOM -->
-        <div id="alerts-section" class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Alerts
-                        </h2>
-                        <span id="alertCount" class="badge bg-danger">0</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="alertsContainer">
-                            <p class="text-center text-muted">No alerts found</p>
+                <div class="card-body">
+                    <div class="search-container">
+                        <div class="search-row">
+                            <div class="search-input">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input class="form-control" id="podSearch" placeholder="Search pods..." type="text"/>
+                                </div>
+                            </div>
+                            <div class="search-select">
+                                <select class="form-select" id="namespaceFilter">
+                                    <option value="all">All Namespaces</option>
+                                </select>
+                            </div>
                         </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="k8s-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Namespace</th>
+                                    <th>Status</th>
+                                    <th>Ready</th>
+                                    <th>Restarts</th>
+                                    <th>Age</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Node</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="podsTable"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/pod-health.js"></script>
-    <script>
+    <!-- Deployments Section -->
+    <div class="row mb-4" id="deployments-section">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-layer-group"></i>
+                        Deployments
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table class="k8s-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Namespace</th>
+                                    <th>Replicas</th>
+                                    <th>Age</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deploymentsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+             </div>
+        </div>
+    </div>
+    <!-- Services Section -->
+    <div class="row mb-4" id="services-section">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-network-wired"></i>
+                         Services
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table class="k8s-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Namespace</th>
+                                    <th>Type</th>
+                                    <th>Cluster IP</th>
+                                    <th>External IP</th>
+                                    <th>Age</th>
+                                    <th>Ports</th>
+                                </tr>
+                            </thead>
+                            <tbody id="servicesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Alerts Section - NOW AT THE BOTTOM -->
+    <div class="row mb-4" id="alerts-section">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Alerts
+                    </h2>
+                    <span class="badge bg-danger" id="alertCount">0</span>
+                </div>
+                <div class="card-body">
+                    <div id="alertsContainer">
+                        <p class="text-center text-muted">No alerts found</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/pod-health.js"></script>
+<script>
         // Fetch data from API
         async function fetchData() {
             try {
                 // Show refresh spinner
                 document.querySelector('.refresh-spinner').style.display = 'inline-block';
-                
+
                 const response = await fetch('/api/data');
                 const data = await response.json();
                 updateUI(data);
-                
+
                 // Hide refresh spinner
                 document.querySelector('.refresh-spinner').style.display = 'none';
             } catch (error) {
@@ -1115,34 +1204,94 @@
             }
         }
         
+        // Function to view pod logs
+        function viewPodLogs(namespace, podName) {
+            const modal = new bootstrap.Modal(document.getElementById('podLogsModal'));
+            const modalTitle = document.getElementById('podLogsModalLabel');
+            const logsContent = document.getElementById('podLogsContent');
+            
+            modalTitle.textContent = `Logs: ${podName} (Latest 50 lines)`;
+            logsContent.textContent = 'Loading logs...';
+            
+            // Show the modal
+            modal.show();
+            
+            // Fetch logs with limit=50 parameter
+            fetch(`/api/pods/${namespace}/${podName}/logs?limit=50`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        logsContent.textContent = data.logs || 'No logs available';
+                    } else {
+                        logsContent.textContent = `Error: ${data.error || 'Failed to fetch logs'}`;
+                    }
+                })
+                .catch(error => {
+                    logsContent.textContent = `Error: ${error.message}`;
+                    console.error('Error fetching logs:', error);
+                });
+                
+            // Set up refresh button
+            document.getElementById('refreshLogsBtn').onclick = function() {
+                logsContent.textContent = 'Refreshing logs...';
+                fetch(`/api/pods/${namespace}/${podName}/logs?limit=50`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            logsContent.textContent = data.logs || 'No logs available';
+                        } else {
+                            logsContent.textContent = `Error: ${data.error || 'Failed to fetch logs'}`;
+                        }
+                    })
+                    .catch(error => {
+                        logsContent.textContent = `Error: ${error.message}`;
+                    });
+            };
+        }
+
         // Update UI with data
         function updateUI(data) {
             console.log("Updating UI with data:", data);
-            
+
             // Last updated
             document.getElementById('lastUpdated').textContent = 'Last updated: ' + data.last_updated;
-            
+
             // Update pod counts
             const runningPods = data.pods ? data.pods.filter(pod => pod.status === "Running").length : 0;
             const pendingPods = data.pods ? data.pods.filter(pod => pod.status === "Pending").length : 0;
             const failedPods = data.pods ? data.pods.filter(pod => pod.status !== "Running" && pod.status !== "Pending").length : 0;
             const totalPods = data.pods ? data.pods.length : 0;
-            
+
             document.getElementById("runningPodCount").textContent = runningPods;
             document.getElementById("pendingPodCount").textContent = pendingPods;
             document.getElementById("failedPodCount").textContent = failedPods;
-            
+
             // Update counts
             document.getElementById('nodeCount').textContent = data.nodes ? data.nodes.length : 0;
             document.getElementById('podCount').textContent = totalPods;
             document.getElementById('deploymentCount').textContent = data.deployments ? data.deployments.length : 0;
             document.getElementById('serviceCount').textContent = data.services ? data.services.length : 0;
             document.getElementById('namespaceCount').textContent = data.namespaces ? data.namespaces.length : 0;
+            document.getElementById('containerCount').textContent = data.container_stats ? data.container_stats.total : 0;
+            document.getElementById('daemonSetCount').textContent = data.daemonsets ? data.daemonsets.length : 0;
+            document.getElementById('statefulSetCount').textContent = data.statefulsets ? data.statefulsets.length : 0;
+
+            // Update container stats
+            if (data.container_stats) {
+                const totalContainers = data.container_stats.total || 0;
+                const runningContainers = data.container_stats.running || 0;
+                const notRunningContainers = totalContainers - runningContainers;
+                
+                document.getElementById('containerCount').textContent = totalContainers;
+                document.getElementById('totalContainerCount').textContent = totalContainers;
+                document.getElementById('runningContainerCount').textContent = runningContainers;
+                document.getElementById('notRunningContainerCount').textContent = notRunningContainers;
+            }
             
             // Update node counts and distribution circle
             let masterCount = 0;
             let workerCount = 0;
-            
+
             if (data.nodes && data.nodes.length > 0) {
                 data.nodes.forEach(node => {
                     if (node.role === 'master' || node.role === 'control-plane') {
@@ -1152,24 +1301,24 @@
                     }
                 });
             }
-            
+
             const totalNodes = masterCount + workerCount;
             document.getElementById('totalNodeCount').textContent = totalNodes;
             document.getElementById('masterNodeCount').textContent = masterCount;
             document.getElementById('workerNodeCount').textContent = workerCount;
-            
+
             // Create SVG pie chart for node distribution
             const nodeCircle = document.getElementById('nodeDistributionCircle');
             const masterPercentage = totalNodes > 0 ? (masterCount / totalNodes) * 100 : 0;
             const workerPercentage = totalNodes > 0 ? (workerCount / totalNodes) * 100 : 0;
-            
+
             // Create SVG element
             const svgNS = "http://www.w3.org/2000/svg";
             const svg = document.createElementNS(svgNS, "svg");
             svg.setAttribute("width", "120");
             svg.setAttribute("height", "120");
             svg.setAttribute("viewBox", "0 0 120 120");
-            
+
             // Create circle background
             const circleBackground = document.createElementNS(svgNS, "circle");
             circleBackground.setAttribute("cx", "60");
@@ -1179,11 +1328,11 @@
             circleBackground.setAttribute("stroke", "#ddd");
             circleBackground.setAttribute("stroke-width", "1");
             svg.appendChild(circleBackground);
-            
+
             // Calculate angles for pie segments
             const masterAngle = (masterPercentage / 100) * 360;
             const workerAngle = (workerPercentage / 100) * 360;
-            
+
             // Create master segment (if any)
             if (masterCount > 0) {
                 const masterPath = document.createElementNS(svgNS, "path");
@@ -1193,17 +1342,17 @@
                 const masterEndX = 60 + 50 * Math.sin(masterEndAngle);
                 const masterEndY = 60 - 50 * Math.cos(masterEndAngle);
                 const masterLargeArc = masterAngle > 180 ? 1 : 0;
-                
+
                 masterPath.setAttribute("d", `M 60 60 L 60 10 A 50 50 0 ${masterLargeArc} 1 ${masterEndX} ${masterEndY} Z`);
                 masterPath.setAttribute("fill", "#326ce5"); // Kubernetes blue
                 svg.appendChild(masterPath);
             }
-            
+
             // Create worker segment (if any)
             if (workerCount > 0) {
                 const workerPath = document.createElementNS(svgNS, "path");
                 let workerStartX, workerStartY;
-                
+
                 if (masterCount > 0) {
                     const masterEndAngle = Math.min(masterAngle, 359.99) * Math.PI / 180;
                     workerStartX = 60 + 50 * Math.sin(masterEndAngle);
@@ -1212,12 +1361,12 @@
                     workerStartX = 60;
                     workerStartY = 10;
                 }
-                
+
                 const workerEndAngle = Math.min((masterAngle + workerAngle), 359.99) * Math.PI / 180;
                 const workerEndX = 60 + 50 * Math.sin(workerEndAngle);
                 const workerEndY = 60 - 50 * Math.cos(workerEndAngle);
                 const workerLargeArc = workerAngle > 180 ? 1 : 0;
-                
+
                 if (masterCount === 0) {
                     // If no master nodes, worker takes full circle
                     workerPath.setAttribute("d", `M 60 60 L 60 10 A 50 50 0 1 1 59.99 10 Z`);
@@ -1227,11 +1376,11 @@
                     const masterEndAngle = masterAngle * Math.PI / 180;
                     workerPath.setAttribute("d", `M 60 60 L ${workerStartX} ${workerStartY} A 50 50 0 ${workerLargeArc} 1 ${workerEndX} ${workerEndY} Z`);
                 }
-                
+
                 workerPath.setAttribute("fill", "#3dba8c"); // Green
                 svg.appendChild(workerPath);
             }
-            
+
             // Add center circle with node count
             const centerCircle = document.createElementNS(svgNS, "circle");
             centerCircle.setAttribute("cx", "60");
@@ -1241,7 +1390,7 @@
             centerCircle.setAttribute("stroke", "#ddd");
             centerCircle.setAttribute("stroke-width", "1");
             svg.appendChild(centerCircle);
-            
+
             // Add node count text
             const nodeCountText = document.createElementNS(svgNS, "text");
             nodeCountText.setAttribute("x", "60");
@@ -1252,16 +1401,16 @@
             nodeCountText.setAttribute("fill", "#333");
             nodeCountText.textContent = totalNodes;
             svg.appendChild(nodeCountText);
-            
+
             // Clear previous content and add the SVG
             nodeCircle.innerHTML = '';
             nodeCircle.appendChild(svg);
-            
+
             // Cluster health
             let healthHtml = '';
             let healthClass = '';
             let healthIcon = '';
-            
+
             switch(data.cluster_health.status) {
                 case 'Critical':
                     healthClass = 'critical';
@@ -1279,13 +1428,13 @@
                     healthClass = 'healthy';
                     healthIcon = 'fa-check-circle';
             }
-            
+
             healthHtml += `
                 <div class="health-status">
                     <div class="health-indicator ${healthClass}"></div>
                     <div class="health-text ${healthClass}">Cluster is ${data.cluster_health.status.toLowerCase()}</div>
                 </div>`;
-            
+
             if (data.cluster_health.components && data.cluster_health.components.length > 0) {
                 healthHtml += '<ul class="list-group list-group-flush">';
                 data.cluster_health.components.forEach(component => {
@@ -1299,29 +1448,29 @@
                 healthHtml += '</ul>';
             }
             document.getElementById('clusterHealth').innerHTML = healthHtml;
-            
+
             // Resource usage
             const cpuUsed = data.resource_usage.cpu.used;
             const cpuTotal = data.resource_usage.cpu.total;
             const cpuPercent = cpuTotal > 0 ? (cpuUsed / cpuTotal) * 100 : 0;
-            
+
             document.getElementById('cpuProgress').style.width = cpuPercent + '%';
             document.getElementById('cpuText').textContent = `${cpuUsed.toFixed(2)}/${cpuTotal} cores (${cpuPercent.toFixed(1)}%)`;
-            
+
             const memoryUsed = data.resource_usage.memory.used;
             const memoryTotal = data.resource_usage.memory.total;
             const memoryPercent = memoryTotal > 0 ? (memoryUsed / memoryTotal) * 100 : 0;
-            
+
             document.getElementById('memoryProgress').style.width = memoryPercent + '%';
             document.getElementById('memoryText').textContent = `${memoryUsed.toFixed(2)}/${memoryTotal.toFixed(1)} GB (${memoryPercent.toFixed(1)}%)`;
-            
+
             // Update version information
             if (data.version_info) {
                 document.getElementById('kubernetesVersion').textContent = data.version_info.kubernetes_version;
                 document.getElementById('kubectlVersion').textContent = data.version_info.kubectl_version;
                 document.getElementById('criVersion').textContent = data.version_info.cri_version;
             }
-            
+
             // Namespaces
             let namespacesHtml = '';
             if (data.namespaces && data.namespaces.length > 0) {
@@ -1341,7 +1490,7 @@
                 namespacesHtml = '<tr><td colspan="5" class="text-center">No namespaces found</td></tr>';
             }
             document.getElementById('namespacesTable').innerHTML = namespacesHtml;
-            
+
             // Nodes
             let nodesHtml = '';
             if (data.nodes && data.nodes.length > 0) {
@@ -1363,23 +1512,23 @@
                 nodesHtml = '<tr><td colspan="5" class="text-center">No nodes found</td></tr>';
             }
             document.getElementById('nodesTable').innerHTML = nodesHtml;
-            
+
             // Update namespace filter
             const namespaceFilter = document.getElementById('namespaceFilter');
             const currentSelection = namespaceFilter.value;
-            
+
             // Clear existing options except "All Namespaces"
             while (namespaceFilter.options.length > 1) {
                 namespaceFilter.remove(1);
             }
-            
+
             // Add namespaces from pods
             const namespaces = new Set();
             if (data.pods && data.pods.length > 0) {
                 data.pods.forEach(pod => {
                     namespaces.add(pod.namespace);
                 });
-                
+
                 // Sort namespaces
                 Array.from(namespaces).sort().forEach(namespace => {
                     const option = document.createElement('option');
@@ -1388,21 +1537,21 @@
                     namespaceFilter.appendChild(option);
                 });
             }
-            
+
             // Restore selection if possible
             if (Array.from(namespaceFilter.options).some(option => option.value === currentSelection)) {
                 namespaceFilter.value = currentSelection;
             }
-            
+
             // Filter and display pods
             filterAndDisplayPods(data.pods);
-            
+
             // Deployments
             let deploymentsHtml = '';
             if (data.deployments && data.deployments.length > 0) {
                 data.deployments.forEach(deployment => {
                     let statusClass, statusIcon;
-                    
+
                     if (deployment.status === 'Available') {
                         statusClass = 'status-badge running';
                         statusIcon = 'fa-check-circle';
@@ -1413,7 +1562,7 @@
                         statusClass = 'status-badge failed';
                         statusIcon = 'fa-exclamation-circle';
                     }
-                    
+
                     deploymentsHtml += `<tr>
                         <td class="resource-name">
                             <i class="fas fa-layer-group me-2" style="color: #ff6b6b;"></i>
@@ -1429,7 +1578,7 @@
                 deploymentsHtml = '<tr><td colspan="5" class="text-center">No deployments found</td></tr>';
             }
             document.getElementById('deploymentsTable').innerHTML = deploymentsHtml;
-            
+
             // Services
             let servicesHtml = '';
             if (data.services && data.services.length > 0) {
@@ -1445,7 +1594,7 @@
                         default:
                             typeClass = 'status-badge';
                     }
-                    
+
                     servicesHtml += `<tr>
                         <td class="resource-name">
                             <i class="fas fa-network-wired me-2" style="color: #ffbe0b;"></i>
@@ -1463,37 +1612,37 @@
                 servicesHtml = '<tr><td colspan="7" class="text-center">No services found</td></tr>';
             }
             document.getElementById('servicesTable').innerHTML = servicesHtml;
-            
+
             // Alerts
             updateAlerts(data.alerts);
         }
-        
+
         // Filter and display pods
         function filterAndDisplayPods(pods) {
             const searchTerm = document.getElementById('podSearch').value.toLowerCase();
             const namespaceFilter = document.getElementById('namespaceFilter').value;
-            
+
             let filteredPods = pods;
-            
+
             // Apply namespace filter
             if (namespaceFilter !== 'all') {
                 filteredPods = filteredPods.filter(pod => pod.namespace === namespaceFilter);
             }
-            
+
             // Apply search filter
             if (searchTerm) {
-                filteredPods = filteredPods.filter(pod => 
-                    pod.name.toLowerCase().includes(searchTerm) || 
+                filteredPods = filteredPods.filter(pod =>
+                    pod.name.toLowerCase().includes(searchTerm) ||
                     pod.namespace.toLowerCase().includes(searchTerm)
                 );
             }
-            
+
             // Display pods
             let podsHtml = '';
             if (filteredPods && filteredPods.length > 0) {
                 filteredPods.forEach(pod => {
                     let statusClass, statusIcon;
-                    
+
                     if (pod.status === 'Running') {
                         statusClass = 'status-badge running';
                         statusIcon = 'fa-check-circle';
@@ -1507,7 +1656,7 @@
                         statusClass = 'status-badge failed';
                         statusIcon = 'fa-exclamation-circle';
                     }
-                    
+
                     podsHtml += `<tr>
                         <td class="resource-name">
                             <i class="fas fa-cube me-2" style="color: #3dba8c;"></i>
@@ -1522,12 +1671,22 @@
                         <td>${pod.memory}</td>
                         <td>${pod.node}</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-success" onclick="startPod('${pod.namespace}', '${pod.name}', '${pod.owner_kind || ''}', '${pod.owner_name || ''}')">
-                                <i class="fas fa-play"></i> Resume
-                            </button>
-                            <button class="btn btn-sm btn-outline-warning" onclick="stopPod('${pod.namespace}', '${pod.name}', '${pod.owner_kind || ''}', '${pod.owner_name || ''}')">
-                                <i class="fas fa-pause"></i> Pause
-                            </button>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="actionDropdown${pod.name}" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-cog"></i> Actions
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="actionDropdown${pod.name}">
+                                    <li><a class="dropdown-item" href="javascript:void(0);" onclick="startPod('${pod.namespace}', '${pod.name}', '${pod.owner_kind || ''}', '${pod.owner_name || ''}')">
+                                        <i class="fas fa-play"></i> Resume
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);" onclick="stopPod('${pod.namespace}', '${pod.name}', '${pod.owner_kind || ''}', '${pod.owner_name || ''}')">
+                                        <i class="fas fa-pause"></i> Pause
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="javascript:void(0);" onclick="viewPodLogs('${pod.namespace}', '${pod.name}')">
+                                        <i class="fas fa-file-alt"></i> View Logs
+                                    </a></li>
+                                </ul>
+                            </div>
                         </td>
                     </tr>`;
                 });
@@ -1536,19 +1695,19 @@
             }
             document.getElementById('podsTable').innerHTML = podsHtml;
         }
-        
+
         // Update alerts section
         function updateAlerts(alerts) {
             const alertsContainer = document.getElementById('alertsContainer');
             const alertCount = document.getElementById('alertCount');
-            
+
             if (alerts && alerts.length > 0) {
                 alertCount.textContent = alerts.length;
-                
+
                 let alertsHtml = '';
                 alerts.forEach(alert => {
                     let iconClass, iconColor;
-                    
+
                     switch(alert.severity) {
                         case 'critical':
                             iconClass = 'fa-times-circle';
@@ -1566,7 +1725,7 @@
                             iconClass = 'fa-info-circle';
                             iconColor = '#326ce5';
                     }
-                    
+
                     alertsHtml += `
                         <div class="alert-card ${alert.severity}">
                             <div class="alert-title">
@@ -1581,22 +1740,22 @@
                         </div>
                     `;
                 });
-                
+
                 alertsContainer.innerHTML = alertsHtml;
             } else {
                 alertCount.textContent = '0';
                 alertsContainer.innerHTML = '<p class="text-center text-muted">No alerts found</p>';
             }
         }
-        
+
         // Set up event listeners
         document.addEventListener('DOMContentLoaded', function() {
             // Initial data fetch
             fetchData();
-            
+
             // Refresh button
             document.getElementById('refreshBtn').addEventListener('click', fetchData);
-            
+
             // Pod search
             document.getElementById('podSearch').addEventListener('input', function() {
                 fetch('/api/data')
@@ -1605,7 +1764,7 @@
                         filterAndDisplayPods(data.pods);
                     });
             });
-            
+
             // Namespace filter
             document.getElementById('namespaceFilter').addEventListener('change', function() {
                 fetch('/api/data')
@@ -1614,43 +1773,43 @@
                         filterAndDisplayPods(data.pods);
                     });
             });
-            
+
             // Create notification area if it doesn't exist
             if (!document.getElementById('notification-area')) {
                 const notificationArea = document.createElement('div');
                 notificationArea.id = 'notification-area';
                 document.body.appendChild(notificationArea);
             }
-            
+
             // Auto-refresh every 30 seconds
             setInterval(fetchData, 30000);
-            
+
             // Load pod action functions
             loadScript('/static/js/pod-actions.js');
         });
-        
+
         // Function to dynamically load scripts
         // Format service ports for display
         function formatServicePorts(ports) {
             if (!ports || ports.length === 0) {
                 return "None";
             }
-            
+
             return ports.map(port => {
                 let portStr = `${port.port}/${port.protocol}`;
-                
+
                 if (port.name && port.name !== "unnamed") {
                     portStr = `${port.name}: ${portStr}`;
                 }
-                
+
                 if (port.node_port) {
                     portStr += ` (NodePort: ${port.node_port})`;
                 }
-                
+
                 return portStr;
             }).join("<br>");
         }
-        
+
         function loadScript(src) {
             console.log("Loading script:", src);
             const script = document.createElement('script');
@@ -1665,26 +1824,84 @@
             document.body.appendChild(script);
         }
     </script>
+
+
+<script>
+function showSection(sectionId) {
+    const sections = [
+        'dashboard-section',
+        'nodes-section',
+        'pods-section',
+        'deployments-section',
+        'services-section',
+        'namespaces-section',
+        'alerts-section'
+    ];
+
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    const active = document.getElementById(sectionId);
+    if (active) active.style.display = 'block';
+
+    document.querySelectorAll('.sidebar-menu a').forEach(link => link.classList.remove('active'));
+    const activeLink = Array.from(document.querySelectorAll('.sidebar-menu a')).find(link =>
+        link.getAttribute('onclick')?.includes(sectionId)
+    );
+    if (activeLink) activeLink.classList.add('active');
+}
+
+window.onload = () => {
+    // Hide all but dashboard on load
+    document.querySelectorAll('#nodes-section, #pods-section, #deployments-section, #services-section, #namespaces-section, #alerts-section')
+        .forEach(el => el.style.display = 'none');
+    const dashboard = document.getElementById('dashboard-section');
+    if (dashboard) dashboard.style.display = 'block';
+};
+</script>
 </body>
 </html>
 
 <!-- Pod Details Modal -->
-<div class="modal fade" id="podDetailsModal" tabindex="-1" aria-labelledby="podDetailsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="podDetailsModalLabel">Pod Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div id="podDetailsContent">
-          <!-- Pod details will be populated here -->
+<div aria-hidden="true" aria-labelledby="podDetailsModalLabel" class="modal fade" id="podDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="podDetailsModalLabel">Pod Details</h5>
+                    <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="restartPodBtn">Restart Pod</button>
-      </div>
+        <div class="modal-body">
+            <div id="podDetailsContent">
+            <!-- Pod details will be populated here -->
+        </div>
     </div>
-  </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Close</button>
+        <button class="btn btn-primary" id="restartPodBtn" type="button">Restart Pod</button>
+    </div>
+</div>
+</div>
+</div>
+
+<!-- Pod Logs Modal -->
+<div class="modal fade" id="podLogsModal" tabindex="-1" aria-labelledby="podLogsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="podLogsModalLabel">Pod Logs</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="logs-container">
+                    <pre id="podLogsContent" class="logs-pre">Loading logs...</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="refreshLogsBtn">Refresh</button>
+            </div>
+        </div>
+    </div>
 </div>

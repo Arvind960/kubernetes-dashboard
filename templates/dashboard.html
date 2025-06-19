@@ -19,6 +19,8 @@
             <a href="#nodes-section"><i class="fas fa-server"></i> <span>Nodes</span></a>
             <a href="#pods-section"><i class="fas fa-cubes"></i> <span>Pods</span></a>
             <a href="#deployments-section"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
+            <a href="#daemonsets-section"><i class="fas fa-robot"></i> <span>DaemonSets</span></a>
+            <a href="#statefulsets-section"><i class="fas fa-database"></i> <span>StatefulSets</span></a>
             <a href="#services-section"><i class="fas fa-network-wired"></i> <span>Services</span></a>
             <a href="#namespaces-section"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
         </div>
@@ -146,6 +148,119 @@
                             Progressing
                         </div>
                         <div class="value" id="progressingDeploymentCount">0 Progressing</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Container Status Card -->
+            <div class="dashboard-card">
+                <h2>
+                    Container Status
+                    <div class="actions">
+                        <a href="#pods-section"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </h2>
+                <div class="status-circle">
+                    <div class="count" id="containerCount">0</div>
+                    <svg>
+                        <circle class="bg" cx="75" cy="75" r="70"></circle>
+                        <circle class="progress" id="containerStatusCircle" cx="75" cy="75" r="70"></circle>
+                    </svg>
+                </div>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Running
+                        </div>
+                        <div class="value" id="runningContainerCount">0 Running</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot yellow"></div>
+                            Not Running
+                        </div>
+                        <div class="value" id="notRunningContainerCount">0 Not Running</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DaemonSet Status Card -->
+            <div class="dashboard-card">
+                <h2>
+                    DaemonSet Status
+                    <div class="actions">
+                        <a href="#daemonsets-section"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </h2>
+                <div class="status-circle">
+                    <div class="count" id="daemonSetCount">0</div>
+                    <svg>
+                        <circle class="bg" cx="75" cy="75" r="70"></circle>
+                        <circle class="progress" id="daemonSetStatusCircle" cx="75" cy="75" r="70"></circle>
+                    </svg>
+                </div>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Ready
+                        </div>
+                        <div class="value" id="readyDaemonSetCount">0 Ready</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot yellow"></div>
+                            Not Ready
+                        </div>
+                        <div class="value" id="notReadyDaemonSetCount">0 Not Ready</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- StatefulSet Status Card -->
+            <div class="dashboard-card">
+                <h2>
+                    StatefulSet Status
+                    <div class="actions">
+                        <a href="#statefulsets-section"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </h2>
+                <div class="status-circle">
+                    <div class="count" id="statefulSetCount">0</div>
+                    <svg>
+                        <circle class="bg" cx="75" cy="75" r="70"></circle>
+                        <circle class="progress" id="statefulSetStatusCircle" cx="75" cy="75" r="70"></circle>
+                    </svg>
+                </div>
+                <div class="status-list">
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot green"></div>
+                            Ready
+                        </div>
+                        <div class="value" id="readyStatefulSetCount">0 Ready</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot yellow"></div>
+                            Scaling
+                        </div>
+                        <div class="value" id="scalingStatefulSetCount">0 Scaling</div>
+                    </div>
+                </div>
+            </div>
+                            <div class="dot green"></div>
+                            Running
+                        </div>
+                        <div class="value" id="runningContainerCount">0 Running</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="label">
+                            <div class="dot yellow"></div>
+                            Not Running
+                        </div>
+                        <div class="value" id="notRunningContainerCount">0 Not Running</div>
                     </div>
                 </div>
             </div>
