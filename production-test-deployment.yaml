@@ -1,0 +1,184 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-web-app
+  namespace: production
+  labels:
+    app: prod-web-app
+    tier: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: prod-web-app
+  template:
+    metadata:
+      labels:
+        app: prod-web-app
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-api-crash
+  namespace: production
+  labels:
+    app: prod-api
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: prod-api
+  template:
+    metadata:
+      labels:
+        app: prod-api
+        tier: backend
+    spec:
+      containers:
+      - name: api-server
+        image: busybox:latest
+        command: ["sh", "-c", "echo 'API Starting...'; sleep 3; exit 1"]
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-db-image-error
+  namespace: production
+  labels:
+    app: prod-db
+    tier: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prod-db
+  template:
+    metadata:
+      labels:
+        app: prod-db
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:99.99-invalid
+        env:
+        - name: POSTGRES_PASSWORD
+          value: secretpass
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-cache-oom
+  namespace: production
+  labels:
+    app: prod-cache
+    tier: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prod-cache
+  template:
+    metadata:
+      labels:
+        app: prod-cache
+        tier: cache
+    spec:
+      containers:
+      - name: redis
+        image: polinux/stress
+        command: ["stress", "--vm", "1", "--vm-bytes", "200M", "--timeout", "60s"]
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "100Mi"
+            cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-web-service
+  namespace: production
+  labels:
+    app: prod-web-app
+spec:
+  type: ClusterIP
+  selector:
+    app: prod-web-app
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-api-service
+  namespace: production
+  labels:
+    app: prod-api
+spec:
+  type: ClusterIP
+  selector:
+    app: prod-api
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-db-service
+  namespace: production
+  labels:
+    app: prod-db
+spec:
+  type: ClusterIP
+  selector:
+    app: prod-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-cache-service
+  namespace: production
+  labels:
+    app: prod-cache
+spec:
+  type: ClusterIP
+  selector:
+    app: prod-cache
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis

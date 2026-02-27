@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>K8s Resource Graph</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1419; color: #fff; }
+        #header { background: #1a1f2e; padding: 15px 20px; border-bottom: 2px solid #2d3748; display: flex; justify-content: space-between; align-items: center; }
+        #header h1 { font-size: 20px; font-weight: 600; }
+        #controls { display: flex; gap: 10px; }
+        button { background: #3182ce; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #2c5aa0; }
+        #graph { width: 100%; height: calc(100vh - 160px); background: #0f1419; }
+        #info { background: #1a1f2e; padding: 15px 20px; border-top: 2px solid #2d3748; min-height: 60px; max-height: 100px; overflow-y: auto; font-size: 13px; line-height: 1.8; }
+        .legend { display: flex; gap: 20px; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 16px; height: 16px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🔷 Kubernetes Resource Graph</h1>
+        <div id="controls">
+            <button onclick="refreshGraph()">🔄 Refresh</button>
+            <button onclick="resetView()">🎯 Reset View</button>
+        </div>
+    </div>
+    <div id="graph"></div>
+    <div id="info">
+        <div class="legend">
+            <div class="legend-item"><div class="legend-color" style="background:#e53e3e"></div>Ingress</div>
+            <div class="legend-item"><div class="legend-color" style="background:#3182ce"></div>Service</div>
+            <div class="legend-item"><div class="legend-color" style="background:#38a169"></div>Deployment</div>
+            <div class="legend-item"><div class="legend-color" style="background:#d69e2e"></div>Pod</div>
+            <span style="margin-left: auto; color: #718096;">Click any resource to reveal complete flow path with arrows →→→</span>
+        </div>
+    </div>
+
+    <script>
+        let network;
+        let graphData;
+        let originalNodeColors = {};
+        let originalEdgeColors = {};
+        
+        const colors = {
+            ingress: '#e53e3e',
+            service: '#3182ce',
+            deployment: '#38a169',
+            pod: '#d69e2e'
+        };
+
+        async function loadGraph() {
+            const res = await fetch('/api/graph');
+            const data = await res.json();
+            
+            const nodes = data.nodes.map(n => ({
+                id: n.id,
+                label: n.label,
+                color: { background: colors[n.type], border: '#fff', highlight: { background: colors[n.type], border: '#ffd700' } },
+                font: { color: '#fff', size: 16, face: 'Arial' },
+                shape: 'dot',
+                size: 30,
+                title: getTooltip(n),
+                data: n
+            }));
+
+            const edges = data.edges.map((e, i) => ({
+                id: `edge-${i}`,
+                from: e.from,
+                to: e.to,
+                arrows: { to: { enabled: false } },
+                color: { color: '#2d3748', opacity: 0.3 },
+                width: 1,
+                smooth: { type: 'cubicBezier' },
+                dashes: true
+            }));
+
+            nodes.forEach(n => originalNodeColors[n.id] = n.color.background);
+            edges.forEach(e => originalEdgeColors[e.id] = e.color.color);
+
+            const container = document.getElementById('graph');
+            graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            const options = {
+                physics: { 
+                    enabled: true,
+                    barnesHut: { gravitationalConstant: -8000, springLength: 150, springConstant: 0.04 },
+                    stabilization: { iterations: 200 }
+                },
+                interaction: { hover: true, tooltipDelay: 100 },
+                layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 200 } }
+            };
+
+            network = new vis.Network(container, graphData, options);
+            
+            network.on('click', params => {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const node = graphData.nodes.get(nodeId);
+                    highlightFlow(nodeId);
+                    showInfo(node.data);
+                } else {
+                    resetHighlight();
+                }
+            });
+        }
+
+        function highlightFlow(nodeId) {
+            resetHighlight();
+            
+            const connectedNodes = new Set([nodeId]);
+            const connectedEdges = new Set();
+            
+            // Find all upstream nodes (sources)
+            const findUpstream = (id) => {
+                graphData.edges.get().forEach(edge => {
+                    if (edge.to === id && !connectedNodes.has(edge.from)) {
+                        connectedNodes.add(edge.from);
+                        connectedEdges.add(edge.id);
+                        findUpstream(edge.from);
+                    }
+                });
+            };
+            
+            // Find all downstream nodes (targets)
+            const findDownstream = (id) => {
+                graphData.edges.get().forEach(edge => {
+                    if (edge.from === id && !connectedNodes.has(edge.to)) {
+                        connectedNodes.add(edge.to);
+                        connectedEdges.add(edge.id);
+                        findDownstream(edge.to);
+                    }
+                });
+            };
+            
+            findUpstream(nodeId);
+            findDownstream(nodeId);
+            
+            // Dim all nodes and edges
+            graphData.nodes.get().forEach(node => {
+                if (!connectedNodes.has(node.id)) {
+                    graphData.nodes.update({
+                        id: node.id,
+                        color: { background: '#2d3748', border: '#4a5568' },
+                        font: { color: '#718096', size: 14 }
+                    });
+                } else {
+                    graphData.nodes.update({
+                        id: node.id,
+                        color: { background: originalNodeColors[node.id], border: '#ffd700' },
+                        font: { color: '#fff', size: 18, bold: true }
+                    });
+                }
+            });
+            
+            graphData.edges.get().forEach(edge => {
+                if (!connectedEdges.has(edge.id)) {
+                    graphData.edges.update({
+                        id: edge.id,
+                        color: { color: '#2d3748', opacity: 0.1 },
+                        width: 1,
+                        dashes: true,
+                        arrows: { to: { enabled: false } }
+                    });
+                } else {
+                    graphData.edges.update({
+                        id: edge.id,
+                        color: { color: '#ffd700' },
+                        width: 5,
+                        dashes: false,
+                        arrows: { to: { enabled: true, scaleFactor: 1.2 } }
+                    });
+                }
+            });
+        }
+
+        function resetHighlight() {
+            graphData.nodes.get().forEach(node => {
+                graphData.nodes.update({
+                    id: node.id,
+                    color: { background: originalNodeColors[node.id], border: '#fff' },
+                    font: { color: '#fff', size: 16 }
+                });
+            });
+            
+            graphData.edges.get().forEach(edge => {
+                graphData.edges.update({
+                    id: edge.id,
+                    color: { color: '#2d3748', opacity: 0.3 },
+                    width: 1,
+                    dashes: true,
+                    arrows: { to: { enabled: false } }
+                });
+            });
+        }
+
+        function getTooltip(n) {
+            let html = `<b>${n.type.toUpperCase()}</b><br>${n.label}<br>Namespace: ${n.namespace}`;
+            if (n.status) html += `<br>Status: ${n.status}`;
+            if (n.ip) html += `<br>IP: ${n.ip}`;
+            return html;
+        }
+
+        function showInfo(data) {
+            const info = document.getElementById('info');
+            let html = `<b>${data.type.toUpperCase()}:</b> ${data.label} | <b>Namespace:</b> ${data.namespace}`;
+            
+            if (data.labels && Object.keys(data.labels).length > 0) {
+                html += ` | <b>Labels:</b> ${Object.entries(data.labels).map(([k,v]) => `${k}=${v}`).join(', ')}`;
+            }
+            if (data.selector && Object.keys(data.selector).length > 0) {
+                html += ` | <b>Selector:</b> ${Object.entries(data.selector).map(([k,v]) => `${k}=${v}`).join(', ')}`;
+            }
+            if (data.status) html += ` | <b>Status:</b> ${data.status}`;
+            if (data.ip) html += ` | <b>IP:</b> ${data.ip}`;
+            if (data.replicas) html += ` | <b>Replicas:</b> ${data.replicas}`;
+            if (data.ports && data.ports.length > 0) {
+                html += ` | <b>Ports:</b> ${data.ports.map(p => `${p.port}→${p.target}`).join(', ')}`;
+            }
+            
+            // Show flow path summary
+            const nodes = graphData.nodes.get();
+            const edges = graphData.edges.get();
+            
+            // Find upstream (what connects TO this node)
+            const upstream = edges.filter(e => e.to === data.id).map(e => {
+                const node = nodes.find(n => n.id === e.from);
+                return node ? `${node.data.type}:${node.data.label}` : '';
+            }).filter(Boolean);
+            
+            // Find downstream (what this node connects TO)
+            const downstream = edges.filter(e => e.from === data.id).map(e => {
+                const node = nodes.find(n => n.id === e.to);
+                return node ? `${node.data.type}:${node.data.label}` : '';
+            }).filter(Boolean);
+            
+            if (upstream.length > 0) {
+                html += ` | <b>⬅ Upstream:</b> ${upstream.join(', ')}`;
+            }
+            if (downstream.length > 0) {
+                html += ` | <b>➡ Downstream:</b> ${downstream.join(', ')}`;
+            }
+            
+            info.innerHTML = html;
+        }
+
+        function refreshGraph() {
+            loadGraph();
+        }
+
+        function resetView() {
+            resetHighlight();
+            network.fit();
+        }
+
+        // Auto-highlight pod from URL parameter
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const podParam = urlParams.get('pod');
+            if (podParam) {
+                const [namespace, podName] = podParam.split('/');
+                // Find the pod node
+                const nodes = graphData.nodes.get();
+                const podNode = nodes.find(n => n.data.namespace === namespace && n.data.label === podName);
+                if (podNode) {
+                    highlightFlow(podNode.id);
+                    showInfo(podNode.data);
+                    network.focus(podNode.id, { scale: 1.5, animation: true });
+                }
+            }
+        }
+
+        loadGraph().then(() => {
+            setTimeout(checkUrlParams, 1000);
+        });
+    </script>
+</body>
+</html>

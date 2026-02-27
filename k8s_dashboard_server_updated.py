@@ -56,6 +56,156 @@ networking_v1 = client.NetworkingV1Api()
 def index():
     return render_template('dashboard.html', running_mode='')
 
+@app.route('/graph')
+def graph():
+    return render_template('graph.html')
+
+@app.route('/graph-test')
+def graph_test():
+    return render_template('graph-test.html')
+
+@app.route('/topology')
+def topology():
+    return render_template('topology.html')
+
+def match_labels(selector, labels):
+    if not selector or not labels:
+        return False
+    return all(labels.get(k) == v for k, v in selector.items())
+
+def get_health(resource_type, status):
+    if resource_type == 'pod':
+        if status.phase == 'Running':
+            return 'healthy' if all(c.ready for c in (status.container_statuses or [])) else 'warning'
+        return 'error' if status.phase == 'Failed' else 'warning'
+    elif resource_type == 'deployment':
+        if status.ready_replicas == status.replicas:
+            return 'healthy'
+        return 'warning' if status.ready_replicas else 'error'
+    return 'unknown'
+
+@app.route('/api/topology')
+def get_topology_data():
+    nodes, edges = [], []
+    node_id = 0
+    
+    try:
+        # Get resources
+        namespaces = v1.list_namespace().items
+        pods = v1.list_pod_for_all_namespaces().items
+        services = v1.list_service_for_all_namespaces().items
+        deployments = apps_v1.list_deployment_for_all_namespaces().items
+        replicasets = apps_v1.list_replica_set_for_all_namespaces().items
+        try:
+            ingresses = networking_v1.list_ingress_for_all_namespaces().items
+        except:
+            ingresses = []
+        
+        # Maps
+        pod_map, rs_map, deploy_map, svc_map = {}, {}, {}, {}
+        
+        # Pods
+        for pod in pods:
+            pod_id = f"pod-{node_id}"
+            pod_map[f"{pod.metadata.namespace}/{pod.metadata.name}"] = pod_id
+            nodes.append({
+                'id': pod_id, 'type': 'pod', 'label': pod.metadata.name,
+                'namespace': pod.metadata.namespace, 'status': pod.status.phase,
+                'health': get_health('pod', pod.status), 'ip': pod.status.pod_ip,
+                'node': pod.spec.node_name, 'labels': pod.metadata.labels or {}
+            })
+            node_id += 1
+        
+        # ReplicaSets
+        for rs in replicasets:
+            rs_id = f"rs-{node_id}"
+            rs_map[f"{rs.metadata.namespace}/{rs.metadata.name}"] = rs_id
+            nodes.append({
+                'id': rs_id, 'type': 'replicaset', 'label': rs.metadata.name,
+                'namespace': rs.metadata.namespace, 'replicas': rs.spec.replicas,
+                'ready': rs.status.ready_replicas or 0, 'selector': rs.spec.selector.match_labels or {}
+            })
+            node_id += 1
+            
+            # RS → Pods
+            for pod in pods:
+                if pod.metadata.namespace == rs.metadata.namespace and pod.metadata.owner_references:
+                    for owner in pod.metadata.owner_references:
+                        if owner.kind == 'ReplicaSet' and owner.name == rs.metadata.name:
+                            pod_id = pod_map.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
+                            if pod_id:
+                                edges.append({'source': rs_id, 'target': pod_id, 'type': 'manages'})
+        
+        # Deployments
+        for deploy in deployments:
+            deploy_id = f"deploy-{node_id}"
+            deploy_map[f"{deploy.metadata.namespace}/{deploy.metadata.name}"] = deploy_id
+            nodes.append({
+                'id': deploy_id, 'type': 'deployment', 'label': deploy.metadata.name,
+                'namespace': deploy.metadata.namespace, 'replicas': deploy.spec.replicas,
+                'ready': deploy.status.ready_replicas or 0, 'health': get_health('deployment', deploy.status),
+                'selector': deploy.spec.selector.match_labels or {}
+            })
+            node_id += 1
+            
+            # Deploy → RS
+            for rs in replicasets:
+                if rs.metadata.namespace == deploy.metadata.namespace and rs.metadata.owner_references:
+                    for owner in rs.metadata.owner_references:
+                        if owner.kind == 'Deployment' and owner.name == deploy.metadata.name:
+                            rs_id = rs_map.get(f"{rs.metadata.namespace}/{rs.metadata.name}")
+                            if rs_id:
+                                edges.append({'source': deploy_id, 'target': rs_id, 'type': 'manages'})
+        
+        # Services
+        for svc in services:
+            svc_id = f"svc-{node_id}"
+            svc_map[f"{svc.metadata.namespace}/{svc.metadata.name}"] = svc_id
+            nodes.append({
+                'id': svc_id, 'type': 'service', 'label': svc.metadata.name,
+                'namespace': svc.metadata.namespace, 'svc_type': svc.spec.type,
+                'cluster_ip': svc.spec.cluster_ip, 'selector': svc.spec.selector or {},
+                'ports': [{'port': p.port, 'target': p.target_port} for p in (svc.spec.ports or [])]
+            })
+            node_id += 1
+            
+            # Service → Pods
+            for pod in pods:
+                if pod.metadata.namespace == svc.metadata.namespace:
+                    if match_labels(svc.spec.selector, pod.metadata.labels):
+                        pod_id = pod_map.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
+                        if pod_id:
+                            edges.append({'source': svc_id, 'target': pod_id, 'type': 'routes'})
+        
+        # Ingress
+        for ing in ingresses:
+            ing_id = f"ing-{node_id}"
+            rules = []
+            if ing.spec.rules:
+                for rule in ing.spec.rules:
+                    if rule.http and rule.http.paths:
+                        for path in rule.http.paths:
+                            svc_name = path.backend.service.name if path.backend.service else None
+                            rules.append({'host': rule.host, 'path': path.path, 'service': svc_name})
+            
+            nodes.append({
+                'id': ing_id, 'type': 'ingress', 'label': ing.metadata.name,
+                'namespace': ing.metadata.namespace, 'rules': rules
+            })
+            node_id += 1
+            
+            # Ingress → Service
+            for rule in rules:
+                if rule['service']:
+                    svc_id = svc_map.get(f"{ing.metadata.namespace}/{rule['service']}")
+                    if svc_id:
+                        edges.append({'source': ing_id, 'target': svc_id, 'type': 'routes', 'path': rule.get('path', '/')})
+        
+        return jsonify({'nodes': nodes, 'edges': edges})
+    except Exception as e:
+        logger.error(f"Error building topology: {e}")
+        return jsonify({'error': str(e), 'nodes': [], 'edges': []}), 500
+
 @app.route('/updated-dashboard')
 def updated_dashboard():
     return render_template('dashboard_updated.html', running_mode='')
@@ -988,110 +1138,176 @@ def test_log_button():
 @app.route('/api/pods/<namespace>/<pod_name>/logs')
 def get_pod_logs(namespace, pod_name):
     try:
-        # Get the limit parameter, default to 50 if not provided
         limit = request.args.get('limit', default=50, type=int)
-        
-        # Get logs from the pod
-        logs = v1.read_namespaced_pod_log(
-            name=pod_name,
-            namespace=namespace,
-            tail_lines=limit  # Get the last N lines based on limit parameter
-        )
-        return jsonify({
-            'success': True,
-            'logs': logs
-        })
+        logs = v1.read_namespaced_pod_log(name=pod_name, namespace=namespace, tail_lines=limit)
+        return jsonify({'success': True, 'logs': logs})
     except ApiException as e:
         logger.error(f"Error getting logs for pod {pod_name} in namespace {namespace}: {e}")
-        return jsonify({
-            'success': False,
-            'error': f"API Error: {e.reason}"
-        }), 400
+        return jsonify({'success': False, 'error': f"API Error: {e.reason}"}), 400
     except Exception as e:
         logger.error(f"Unexpected error getting logs for pod {pod_name}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': f"Unexpected error: {str(e)}"
-        }), 500
+        return jsonify({'success': False, 'error': f"Unexpected error: {str(e)}"}), 500
+
+@app.route('/api/yaml/<resource_type>/<namespace>/<name>')
+def get_yaml(resource_type, namespace, name):
+    try:
+        if resource_type == 'pod':
+            obj = v1.read_namespaced_pod(name=name, namespace=namespace)
+        elif resource_type == 'deployment':
+            obj = apps_v1.read_namespaced_deployment(name=name, namespace=namespace)
+        elif resource_type == 'service':
+            obj = v1.read_namespaced_service(name=name, namespace=namespace)
+        elif resource_type == 'namespace':
+            obj = v1.read_namespace(name=name)
+        else:
+            return jsonify({'success': False, 'error': 'Unsupported resource type'}), 400
+        
+        yaml_str = client.ApiClient().sanitize_for_serialization(obj)
+        import yaml
+        yaml_output = yaml.dump(yaml_str, default_flow_style=False)
+        return jsonify({'success': True, 'yaml': yaml_output})
+    except Exception as e:
+        logger.error(f"Error getting YAML: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/events/<namespace>/<name>')
+def get_events(namespace, name):
+    try:
+        events = v1.list_namespaced_event(namespace=namespace, field_selector=f'involvedObject.name={name}')
+        event_list = []
+        for event in events.items:
+            event_list.append({
+                'type': event.type,
+                'reason': event.reason,
+                'message': event.message,
+                'count': event.count,
+                'first_timestamp': event.first_timestamp.strftime("%Y-%m-%d %H:%M:%S") if event.first_timestamp else 'N/A',
+                'last_timestamp': event.last_timestamp.strftime("%Y-%m-%d %H:%M:%S") if event.last_timestamp else 'N/A'
+            })
+        return jsonify({'success': True, 'events': event_list})
+    except Exception as e:
+        logger.error(f"Error getting events: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 @app.route('/api/pods/<namespace>/<pod_name>/restart', methods=['POST'])
 def api_restart_pod(namespace, pod_name):
     return restart_pod(v1, namespace, pod_name, logger)
+
+def match_labels(selector, labels):
+    if not selector or not labels:
+        return False
+    return all(labels.get(k) == v for k, v in selector.items())
+
+@app.route('/api/graph')
+def get_graph():
+    nodes = []
+    edges = []
+    node_id = 0
+    
+    try:
+        pods = v1.list_pod_for_all_namespaces().items
+        services = v1.list_service_for_all_namespaces().items
+        deployments = apps_v1.list_deployment_for_all_namespaces().items
+        try:
+            ingresses = networking_v1.list_ingress_for_all_namespaces().items
+        except:
+            ingresses = []
+        
+        pod_nodes = {}
+        svc_nodes = {}
+        deploy_nodes = {}
+        
+        # Add Pods
+        for pod in pods:
+            pod_id = f"pod-{node_id}"
+            node_id += 1
+            pod_nodes[f"{pod.metadata.namespace}/{pod.metadata.name}"] = pod_id
+            nodes.append({
+                'id': pod_id,
+                'label': pod.metadata.name,
+                'type': 'pod',
+                'namespace': pod.metadata.namespace,
+                'status': pod.status.phase,
+                'labels': pod.metadata.labels or {},
+                'ip': pod.status.pod_ip
+            })
+        
+        # Add Deployments
+        for deploy in deployments:
+            deploy_id = f"deploy-{node_id}"
+            node_id += 1
+            deploy_nodes[f"{deploy.metadata.namespace}/{deploy.metadata.name}"] = deploy_id
+            nodes.append({
+                'id': deploy_id,
+                'label': deploy.metadata.name,
+                'type': 'deployment',
+                'namespace': deploy.metadata.namespace,
+                'replicas': deploy.spec.replicas,
+                'selector': deploy.spec.selector.match_labels or {}
+            })
+            
+            for pod in pods:
+                if pod.metadata.namespace == deploy.metadata.namespace:
+                    if match_labels(deploy.spec.selector.match_labels, pod.metadata.labels):
+                        pod_id = pod_nodes.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
+                        if pod_id:
+                            edges.append({'from': deploy_id, 'to': pod_id})
+        
+        # Add Services
+        for svc in services:
+            svc_id = f"svc-{node_id}"
+            node_id += 1
+            svc_nodes[f"{svc.metadata.namespace}/{svc.metadata.name}"] = svc_id
+            nodes.append({
+                'id': svc_id,
+                'label': svc.metadata.name,
+                'type': 'service',
+                'namespace': svc.metadata.namespace,
+                'selector': svc.spec.selector or {},
+                'ports': [{'port': p.port, 'target': p.target_port} for p in (svc.spec.ports or [])]
+            })
+            
+            for pod in pods:
+                if pod.metadata.namespace == svc.metadata.namespace:
+                    if match_labels(svc.spec.selector, pod.metadata.labels):
+                        pod_id = pod_nodes.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
+                        if pod_id:
+                            edges.append({'from': svc_id, 'to': pod_id})
+        
+        # Add Ingresses
+        for ing in ingresses:
+            ing_id = f"ing-{node_id}"
+            node_id += 1
+            
+            rules = []
+            if ing.spec.rules:
+                for rule in ing.spec.rules:
+                    if rule.http and rule.http.paths:
+                        for path in rule.http.paths:
+                            rules.append({
+                                'host': rule.host,
+                                'path': path.path,
+                                'service': path.backend.service.name if path.backend.service else None
+                            })
+            
+            nodes.append({
+                'id': ing_id,
+                'label': ing.metadata.name,
+                'type': 'ingress',
+                'namespace': ing.metadata.namespace,
+                'rules': rules
+            })
+            
+            for rule in rules:
+                if rule['service']:
+                    svc_id = svc_nodes.get(f"{ing.metadata.namespace}/{rule['service']}")
+                    if svc_id:
+                        edges.append({'from': ing_id, 'to': svc_id, 'path': rule.get('path', '/')})
+        
+        return jsonify({'nodes': nodes, 'edges': edges})
+    except Exception as e:
+        logger.error(f"Error generating graph: {e}")
+        return jsonify({'error': str(e), 'nodes': [], 'edges': []}), 500
 
 if __name__ == '__main__':
     logger.info("Starting Kubernetes Dashboard Server")
     app.run(host='0.0.0.0', port=8888)
-@app.route('/api/daemonsets')
-def get_daemonsets():
-    try:
-        daemonsets = []
-        ds_list = apps_v1.list_daemon_set_for_all_namespaces()
-        
-        for ds in ds_list.items:
-            daemonsets.append({
-                'name': ds.metadata.name,
-                'namespace': ds.metadata.namespace,
-                'desiredNumberScheduled': ds.status.desired_number_scheduled,
-                'currentNumberScheduled': ds.status.current_number_scheduled,
-                'numberReady': ds.status.number_ready,
-                'numberAvailable': ds.status.number_available if hasattr(ds.status, 'number_available') else 0,
-                'numberUnavailable': ds.status.number_unavailable if hasattr(ds.status, 'number_unavailable') else 0
-            })
-        
-        return jsonify(daemonsets)
-    except Exception as e:
-        logger.error(f"Error getting DaemonSets: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/statefulsets')
-def get_statefulsets():
-    try:
-        statefulsets = []
-        sts_list = apps_v1.list_stateful_set_for_all_namespaces()
-        
-        for sts in sts_list.items:
-            statefulsets.append({
-                'name': sts.metadata.name,
-                'namespace': sts.metadata.namespace,
-                'replicas': sts.spec.replicas,
-                'currentReplicas': sts.status.current_replicas if hasattr(sts.status, 'current_replicas') else 0,
-                'readyReplicas': sts.status.ready_replicas if hasattr(sts.status, 'ready_replicas') else 0,
-                'updateRevision': sts.status.update_revision if hasattr(sts.status, 'update_revision') else 'N/A'
-            })
-        
-        return jsonify(statefulsets)
-    except Exception as e:
-        logger.error(f"Error getting StatefulSets: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# Import pod health monitoring module
-from pod_health_monitor import get_pod_health, restart_pod
-
-@app.route('/api/pod-health')
-def api_pod_health():
-    return get_pod_health(v1, logger)
-
-@app.route('/api/pods/<namespace>/<pod_name>/restart', methods=['POST'])
-def api_restart_pod(namespace, pod_name):
-    return restart_pod(v1, namespace, pod_name, logger)
-
-
-@app.route("/test-modal")
-def test_modal():
-    return send_file("test-modal.html")
-
-
-@app.route("/test-details-button")
-def test_details_button():
-    return render_template("test-details-button.html")
-
-@app.route("/pod-details-test")
-def pod_details_test():
-    return send_file("pod-details-test.html")
-
-@app.route("/pod-health-metrics-test")
-def pod_health_metrics_test():
-    return send_file("pod-health-metrics-test.html")
-
-@app.route("/pod-health-metrics-simple")
-def pod_health_metrics_simple():
-    return send_file("pod-health-metrics-simple.html")

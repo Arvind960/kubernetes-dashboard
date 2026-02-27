@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kubernetes Topology Map</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%); color: #fff; }
+        #header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 20px 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: center; }
+        #header h1 { font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+        #header h1::before { content: '🗺️'; font-size: 28px; }
+        .controls { display: flex; gap: 12px; align-items: center; }
+        .btn { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s; box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.5); }
+        .btn:active { transform: translateY(0); }
+        .btn.live { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .status-indicator { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 8px; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; animation: pulse 2s infinite; }
+        .status-dot.connected { background: #10b981; box-shadow: 0 0 10px #10b981; }
+        .status-dot.disconnected { background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        #graph { width: 100%; height: calc(100vh - 310px); background: rgba(15,20,25,0.5); }
+        #legend { background: rgba(30,41,59,0.9); padding: 15px 30px; display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.1); }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .legend-icon { width: 20px; height: 20px; border-radius: 4px; border: 2px solid; }
+        .legend-icon.healthy { border-color: #10b981; background: rgba(16,185,129,0.2); }
+        .legend-icon.warning { border-color: #f59e0b; background: rgba(245,158,11,0.2); }
+        .legend-icon.error { border-color: #ef4444; background: rgba(239,68,68,0.2); }
+        .legend-icon.down { border-color: #dc2626; background: #dc2626; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0.3; } }
+        .queue-indicator { position: absolute; top: -8px; right: -8px; background: #f59e0b; color: #000; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; border: 2px solid #fff; animation: pulse-queue 1.5s infinite; }
+        @keyframes pulse-queue { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        #details { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 20px 30px; border-top: 2px solid rgba(59,130,246,0.3); min-height: 100px; max-height: 150px; overflow-y: auto; font-size: 14px; line-height: 1.8; box-shadow: 0 -4px 20px rgba(0,0,0,0.3); }
+        .detail-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; margin: 0 4px; }
+        .detail-badge.healthy { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; }
+        .detail-badge.warning { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+        .detail-badge.error { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .detail-badge.down { background: #dc2626; color: #fff; border: 1px solid #dc2626; animation: blink 1s infinite; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Kubernetes Topology Map</h1>
+        <div class="controls">
+            <div class="status-indicator">
+                <span class="status-dot disconnected" id="wsStatus"></span>
+                <span id="wsText">Disconnected</span>
+            </div>
+            <button class="btn" onclick="loadTopology()">🔄 Refresh</button>
+            <button class="btn live" onclick="connectWS()">📡 Live Mode</button>
+        </div>
+    </div>
+    <div id="graph"></div>
+    <div id="legend">
+        <div class="legend-item"><div class="legend-icon healthy"></div> Healthy</div>
+        <div class="legend-item"><div class="legend-icon warning"></div> Warning</div>
+        <div class="legend-item"><div class="legend-icon error"></div> Error</div>
+        <div class="legend-item"><div class="legend-icon down"></div> Down/Failed</div>
+        <div class="legend-item"><span style="background: #f59e0b; color: #000; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;">Q</span> Queue/Restarts</div>
+    </div>
+    <div id="details">Click on any resource to view details</div>
+
+    <script>
+        let network, graphData, ws;
+        const colors = {
+            namespace: { bg: '#8b5cf6', border: '#7c3aed' },
+            ingress: { bg: '#f59e0b', border: '#d97706' },
+            service: { bg: '#3b82f6', border: '#2563eb' },
+            deployment: { bg: '#10b981', border: '#059669' },
+            replicaset: { bg: '#6366f1', border: '#4f46e5' },
+            pod: { bg: '#ec4899', border: '#db2777' }
+        };
+
+        async function loadTopology() {
+            const res = await fetch('/api/topology');
+            const data = await res.json();
+            renderGraph(data);
+            setTimeout(highlightPod, 500);
+        }
+
+        function getNodeStyle(node) {
+            const baseColor = colors[node.type] || { bg: '#64748b', border: '#475569' };
+            let borderColor, borderWidth = 3, shadow = true;
+            
+            if (node.health === 'healthy') {
+                borderColor = '#10b981';
+            } else if (node.health === 'warning') {
+                borderColor = '#f59e0b';
+            } else if (node.health === 'error' || node.status === 'Failed' || node.status === 'CrashLoopBackOff') {
+                borderColor = '#ef4444';
+                borderWidth = 4;
+            } else {
+                borderColor = baseColor.border;
+            }
+
+            const isDown = node.status === 'Failed' || node.status === 'CrashLoopBackOff' || 
+                          (node.type === 'pod' && node.status !== 'Running') ||
+                          (node.type === 'deployment' && node.ready === 0 && node.replicas > 0);
+
+            return {
+                color: {
+                    background: baseColor.bg,
+                    border: isDown ? '#dc2626' : borderColor,
+                    highlight: { background: baseColor.bg, border: '#fbbf24' }
+                },
+                borderWidth: isDown ? 5 : borderWidth,
+                borderWidthSelected: 4,
+                shadow: shadow ? { enabled: true, color: 'rgba(0,0,0,0.5)', size: 10, x: 2, y: 2 } : false,
+                font: { color: '#ffffff', size: 13, face: 'Segoe UI', bold: node.type !== 'pod' },
+                shapeProperties: { borderDashes: isDown ? [5, 5] : false }
+            };
+        }
+
+        function renderGraph(data) {
+            const nodes = data.nodes.map(n => {
+                const style = getNodeStyle(n);
+                const shape = n.type === 'namespace' ? 'box' : 
+                             n.type === 'ingress' ? 'diamond' :
+                             n.type === 'service' ? 'box' :
+                             n.type === 'pod' ? 'dot' : 'ellipse';
+                
+                const size = n.type === 'pod' ? 25 : n.type === 'namespace' ? 40 : 35;
+                
+                let label = n.label;
+                if (n.type === 'deployment' || n.type === 'replicaset') {
+                    label += `\n(${n.ready || 0}/${n.replicas || 0})`;
+                }
+                if (n.type === 'service' && n.endpoints !== undefined) {
+                    label += `\n[${n.endpoints} endpoints]`;
+                }
+                if (n.status === 'Failed' || n.status === 'CrashLoopBackOff') {
+                    label += '\n⚠️ DOWN';
+                }
+                if (n.type === 'pod' && n.restarts > 0) {
+                    label += `\n🔄 ${n.restarts}`;
+                }
+                if (n.queued && n.queue_size > 0) {
+                    label += `\n⏳ Q:${n.queue_size}`;
+                }
+
+                return { id: n.id, label, shape, size, ...style, data: n };
+            });
+
+            const edges = data.edges.map((e, i) => {
+                const sourceNode = data.nodes.find(n => n.id === e.source);
+                const targetNode = data.nodes.find(n => n.id === e.target);
+                
+                let edgeColor = 'rgba(148,163,184,0.6)';
+                let edgeWidth = 2;
+                let edgeLabel = '';
+                
+                // Highlight queued connections
+                if (targetNode && targetNode.queued) {
+                    edgeColor = '#f59e0b';
+                    edgeWidth = 3;
+                    edgeLabel = `⏳ Q:${targetNode.queue_size || 0}`;
+                }
+                
+                // Show restart issues
+                if (targetNode && targetNode.type === 'pod' && targetNode.restarts > 2) {
+                    edgeColor = '#ef4444';
+                    edgeWidth = 3;
+                    edgeLabel = `🔄 ${targetNode.restarts}`;
+                }
+
+                return {
+                    id: `edge-${i}`,
+                    from: e.source,
+                    to: e.target,
+                    arrows: { to: { enabled: true, scaleFactor: 0.8 } },
+                    color: { color: edgeColor, highlight: '#3b82f6' },
+                    width: edgeWidth,
+                    label: edgeLabel,
+                    font: { size: 10, color: '#fff', background: 'rgba(0,0,0,0.7)', strokeWidth: 0 },
+                    smooth: { type: 'cubicBezier', roundness: 0.5 }
+                };
+            });
+
+            graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            network = new vis.Network(document.getElementById('graph'), graphData, {
+                physics: { 
+                    enabled: true,
+                    barnesHut: { gravitationalConstant: -10000, springLength: 200, springConstant: 0.04 },
+                    stabilization: { iterations: 150 }
+                },
+                layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 280, nodeSpacing: 150 } },
+                interaction: { hover: true, tooltipDelay: 200, zoomView: true }
+            });
+
+            network.on('click', params => {
+                if (params.nodes.length > 0) {
+                    const node = graphData.nodes.get(params.nodes[0]);
+                    showDetails(node.data);
+                }
+            });
+        }
+
+        function showDetails(data) {
+            const isDown = data.status === 'Failed' || data.status === 'CrashLoopBackOff' || 
+                          (data.type === 'pod' && data.status !== 'Running' && data.status !== 'Succeeded') ||
+                          (data.type === 'deployment' && data.ready === 0 && data.replicas > 0);
+            
+            const healthClass = isDown ? 'down' : (data.health || 'healthy');
+            const healthBadge = `<span class="detail-badge ${healthClass}">${isDown ? '⚠️ DOWN' : (data.health || 'unknown').toUpperCase()}</span>`;
+            
+            let html = `<b>${data.type.toUpperCase()}:</b> <b>${data.label}</b> ${healthBadge}`;
+            if (data.namespace) html += ` | <b>Namespace:</b> ${data.namespace}`;
+            if (data.status) html += ` | <b>Status:</b> ${data.status}`;
+            if (data.ip) html += ` | <b>IP:</b> ${data.ip}`;
+            if (data.node) html += ` | <b>Node:</b> ${data.node}`;
+            if (data.replicas !== undefined) html += ` | <b>Replicas:</b> ${data.ready || 0}/${data.replicas}`;
+            if (data.cluster_ip) html += ` | <b>Cluster IP:</b> ${data.cluster_ip}`;
+            if (data.endpoints !== undefined) html += ` | <b>Endpoints:</b> ${data.endpoints}`;
+            
+            if (data.restarts !== undefined && data.restarts > 0) {
+                html += ` | <b>🔄 Restarts:</b> <span style="color: ${data.restarts > 2 ? '#ef4444' : '#f59e0b'}; font-weight: bold;">${data.restarts}</span>`;
+            }
+            
+            if (data.queued && data.queue_size > 0) {
+                html += ` | <span style="color: #f59e0b; font-weight: bold;">⏳ QUEUE SIZE: ${data.queue_size}</span>`;
+            }
+            
+            // Show queue reasons
+            if (data.queue_reasons && data.queue_reasons.length > 0) {
+                html += '<br><b style="color: #f59e0b;">📋 Queue Issues:</b> ';
+                html += data.queue_reasons.map(r => `<span style="color: #fbbf24;">${r}</span>`).join(' | ');
+            }
+            
+            // Show error reasons
+            if (data.error_reasons && data.error_reasons.length > 0) {
+                html += '<br><b style="color: #ef4444;">❌ Error Details:</b> ';
+                html += data.error_reasons.map(r => `<span style="color: #fca5a5;">${r}</span>`).join(' | ');
+            }
+            
+            document.getElementById('details').innerHTML = html;
+        }
+
+        function highlightPod() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const podParam = urlParams.get('pod');
+            if (podParam && graphData) {
+                const [namespace, podName] = podParam.split('/');
+                const nodes = graphData.nodes.get();
+                const podNode = nodes.find(n => n.data.namespace === namespace && n.data.label.includes(podName));
+                if (podNode) {
+                    network.selectNodes([podNode.id]);
+                    network.focus(podNode.id, { scale: 1.5, animation: { duration: 1000, easingFunction: 'easeInOutQuad' } });
+                    showDetails(podNode.data);
+                }
+            }
+        }
+
+        function connectWS() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${location.host}/ws/topology`);
+            
+            ws.onopen = () => {
+                document.getElementById('wsStatus').className = 'status-dot connected';
+                document.getElementById('wsText').textContent = 'Live';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                renderGraph(data);
+            };
+            
+            ws.onerror = ws.onclose = () => {
+                document.getElementById('wsStatus').className = 'status-dot disconnected';
+                document.getElementById('wsText').textContent = 'Disconnected';
+            };
+        }
+
+        loadTopology();
+    </script>
+</body>
+</html>

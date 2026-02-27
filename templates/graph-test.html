@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>K8s Graph Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+    <style>
+        body { margin: 0; background: #0f1419; color: #fff; font-family: Arial; }
+        #graph { width: 100%; height: 100vh; }
+        #status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div id="status">Loading...</div>
+    <div id="graph"></div>
+    <script>
+        const status = document.getElementById('status');
+        
+        fetch('/api/graph')
+            .then(r => r.json())
+            .then(data => {
+                status.textContent = `Loaded: ${data.nodes.length} nodes, ${data.edges.length} edges`;
+                
+                const nodes = new vis.DataSet(data.nodes.map(n => ({
+                    id: n.id,
+                    label: n.label,
+                    color: n.type === 'pod' ? '#d69e2e' : n.type === 'service' ? '#3182ce' : n.type === 'deployment' ? '#38a169' : '#e53e3e',
+                    shape: 'dot',
+                    size: 20
+                })));
+                
+                const edges = new vis.DataSet(data.edges.map((e, i) => ({
+                    id: i,
+                    from: e.from,
+                    to: e.to,
+                    arrows: 'to',
+                    color: '#4a5568'
+                })));
+                
+                const container = document.getElementById('graph');
+                const network = new vis.Network(container, { nodes, edges }, {
+                    physics: { enabled: true },
+                    layout: { hierarchical: { direction: 'LR' } }
+                });
+                
+                network.on('click', params => {
+                    if (params.nodes.length > 0) {
+                        status.textContent = `Clicked: ${params.nodes[0]}`;
+                    }
+                });
+            })
+            .catch(err => {
+                status.textContent = 'Error: ' + err.message;
+                console.error(err);
+            });
+    </script>
+</body>
+</html>
