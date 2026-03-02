@@ -61,6 +61,25 @@ class TopologyBuilder:
             'error_reasons': error_reasons
         }
     
+    def get_service_type_info(self, svc) -> dict:
+        """Get service network type and exposure details"""
+        svc_type = svc.spec.type
+        external_access = False
+        external_ip = None
+        
+        if svc_type == 'LoadBalancer':
+            external_access = True
+            if svc.status.load_balancer.ingress:
+                external_ip = svc.status.load_balancer.ingress[0].ip or svc.status.load_balancer.ingress[0].hostname
+        elif svc_type == 'NodePort':
+            external_access = True
+        
+        return {
+            'type': svc_type,
+            'external_access': external_access,
+            'external_ip': external_ip
+        }
+    
     def get_health(self, resource_type: str, status) -> str:
         if resource_type == 'pod':
             if status.phase == 'Running':
@@ -93,18 +112,45 @@ class TopologyBuilder:
         except:
             ingresses = []
         
-        # Maps
-        pod_map, rs_map, deploy_map, svc_map = {}, {}, {}, {}
+        # Get nodes for infrastructure layer
+        try:
+            k8s_nodes = v1.list_node().items
+        except:
+            k8s_nodes = []
         
-        # Namespaces
+        # Maps
+        pod_map, rs_map, deploy_map, svc_map, node_map, ns_map = {}, {}, {}, {}, {}, {}
+        
+        # Layer 1: Namespaces (Logical Isolation)
         for ns in namespaces:
+            ns_id = f"ns-{node_id}"
+            ns_map[ns.metadata.name] = ns_id
             nodes.append({
-                'id': f"ns-{node_id}", 'type': 'namespace', 'label': ns.metadata.name,
-                'status': ns.status.phase, 'health': 'healthy' if ns.status.phase == 'Active' else 'error'
+                'id': ns_id, 'type': 'namespace', 'label': ns.metadata.name,
+                'status': ns.status.phase, 'health': 'healthy' if ns.status.phase == 'Active' else 'error',
+                'layer': 'namespace'
             })
             node_id += 1
         
-        # Pods
+        # Layer 2: Infrastructure - Nodes
+        for node in k8s_nodes:
+            k8s_node_id = f"node-{node_id}"
+            node_map[node.metadata.name] = k8s_node_id
+            node_ready = False
+            for condition in node.status.conditions or []:
+                if condition.type == 'Ready':
+                    node_ready = condition.status == 'True'
+            
+            nodes.append({
+                'id': k8s_node_id, 'type': 'node', 'label': node.metadata.name,
+                'status': 'Ready' if node_ready else 'NotReady',
+                'health': 'healthy' if node_ready else 'error',
+                'addresses': [addr.address for addr in (node.status.addresses or [])],
+                'layer': 'infrastructure'
+            })
+            node_id += 1
+        
+        # Layer 3: Workload - Pods
         for pod in pods:
             pod_id = f"pod-{node_id}"
             pod_map[f"{pod.metadata.namespace}/{pod.metadata.name}"] = pod_id
@@ -116,18 +162,26 @@ class TopologyBuilder:
                 'node': pod.spec.node_name, 'labels': pod.metadata.labels or {},
                 'restarts': queue_metrics['restarts'], 'queued': queue_metrics['queued'],
                 'queue_size': queue_metrics['queue_size'], 'queue_reasons': queue_metrics['queue_reasons'],
-                'error_reasons': queue_metrics['error_reasons']
+                'error_reasons': queue_metrics['error_reasons'], 'layer': 'workload'
             })
             node_id += 1
+            
+            # Pod → Node relationship
+            if pod.spec.node_name and pod.spec.node_name in node_map:
+                edges.append({
+                    'source': pod_id, 'target': node_map[pod.spec.node_name],
+                    'type': 'scheduled_on', 'layer': 'infrastructure'
+                })
         
-        # ReplicaSets
+        # Layer 4: Workload Management - ReplicaSets
         for rs in replicasets:
             rs_id = f"rs-{node_id}"
             rs_map[f"{rs.metadata.namespace}/{rs.metadata.name}"] = rs_id
             nodes.append({
                 'id': rs_id, 'type': 'replicaset', 'label': rs.metadata.name,
                 'namespace': rs.metadata.namespace, 'replicas': rs.spec.replicas,
-                'ready': rs.status.ready_replicas or 0, 'selector': rs.spec.selector.match_labels or {}
+                'ready': rs.status.ready_replicas or 0, 'selector': rs.spec.selector.match_labels or {},
+                'layer': 'workload'
             })
             node_id += 1
             
@@ -138,9 +192,9 @@ class TopologyBuilder:
                         if owner.kind == 'ReplicaSet' and owner.name == rs.metadata.name:
                             pod_id = pod_map.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
                             if pod_id:
-                                edges.append({'source': rs_id, 'target': pod_id, 'type': 'manages'})
+                                edges.append({'source': rs_id, 'target': pod_id, 'type': 'manages', 'layer': 'workload'})
         
-        # Deployments
+        # Layer 5: Workload Management - Deployments
         for deploy in deployments:
             deploy_id = f"deploy-{node_id}"
             deploy_map[f"{deploy.metadata.namespace}/{deploy.metadata.name}"] = deploy_id
@@ -148,7 +202,7 @@ class TopologyBuilder:
                 'id': deploy_id, 'type': 'deployment', 'label': deploy.metadata.name,
                 'namespace': deploy.metadata.namespace, 'replicas': deploy.spec.replicas,
                 'ready': deploy.status.ready_replicas or 0, 'health': self.get_health('deployment', deploy.status),
-                'selector': deploy.spec.selector.match_labels or {}
+                'selector': deploy.spec.selector.match_labels or {}, 'layer': 'workload'
             })
             node_id += 1
             
@@ -159,21 +213,25 @@ class TopologyBuilder:
                         if owner.kind == 'Deployment' and owner.name == deploy.metadata.name:
                             rs_id = rs_map.get(f"{rs.metadata.namespace}/{rs.metadata.name}")
                             if rs_id:
-                                edges.append({'source': deploy_id, 'target': rs_id, 'type': 'manages'})
+                                edges.append({'source': deploy_id, 'target': rs_id, 'type': 'manages', 'layer': 'workload'})
         
-        # Services
+        # Layer 6: Network - Services (Internal Load Balancing)
         for svc in services:
             svc_id = f"svc-{node_id}"
             svc_map[f"{svc.metadata.namespace}/{svc.metadata.name}"] = svc_id
+            svc_info = self.get_service_type_info(svc)
+            
             nodes.append({
                 'id': svc_id, 'type': 'service', 'label': svc.metadata.name,
                 'namespace': svc.metadata.namespace, 'svc_type': svc.spec.type,
                 'cluster_ip': svc.spec.cluster_ip, 'selector': svc.spec.selector or {},
-                'ports': [{'port': p.port, 'target': p.target_port} for p in (svc.spec.ports or [])]
+                'ports': [{'port': p.port, 'target': p.target_port, 'node_port': getattr(p, 'node_port', None)} for p in (svc.spec.ports or [])],
+                'external_access': svc_info['external_access'], 'external_ip': svc_info['external_ip'],
+                'layer': 'network'
             })
             node_id += 1
             
-            # Service → Pods
+            # Service → Pods (Traffic routing)
             pod_count = 0
             for pod in pods:
                 if pod.metadata.namespace == svc.metadata.namespace:
@@ -181,7 +239,7 @@ class TopologyBuilder:
                         pod_id = pod_map.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
                         if pod_id:
                             pod_count += 1
-                            edges.append({'source': svc_id, 'target': pod_id, 'type': 'routes'})
+                            edges.append({'source': svc_id, 'target': pod_id, 'type': 'routes', 'layer': 'network'})
             
             # Update service with endpoint count
             for node in nodes:
@@ -189,7 +247,7 @@ class TopologyBuilder:
                     node['endpoints'] = pod_count
                     break
         
-        # Ingress
+        # Layer 7: Ingress (External Access & L7 Load Balancing)
         for ing in ingresses:
             ing_id = f"ing-{node_id}"
             rules = []
@@ -202,16 +260,17 @@ class TopologyBuilder:
             
             nodes.append({
                 'id': ing_id, 'type': 'ingress', 'label': ing.metadata.name,
-                'namespace': ing.metadata.namespace, 'rules': rules
+                'namespace': ing.metadata.namespace, 'rules': rules,
+                'layer': 'ingress'
             })
             node_id += 1
             
-            # Ingress → Service
+            # Ingress → Service (L7 routing)
             for rule in rules:
                 if rule['service']:
                     svc_id = svc_map.get(f"{ing.metadata.namespace}/{rule['service']}")
                     if svc_id:
-                        edges.append({'source': ing_id, 'target': svc_id, 'type': 'routes', 'path': rule.get('path', '/')})
+                        edges.append({'source': ing_id, 'target': svc_id, 'type': 'routes', 'path': rule.get('path', '/'), 'layer': 'ingress'})
         
         return {'nodes': nodes, 'edges': edges}
 
