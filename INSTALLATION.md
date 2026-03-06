@@ -1,6 +1,6 @@
 # Kubernetes Dashboard Installation Guide
 
-This document provides detailed instructions for installing and configuring the Kubernetes Dashboard application.
+This document provides detailed instructions for installing and configuring the Kubernetes Dashboard application with advanced metrics monitoring.
 
 ## Prerequisites
 
@@ -12,6 +12,7 @@ Before installing the dashboard, ensure you have the following prerequisites:
 - `pip` package manager
 - Metrics Server installed on your Kubernetes cluster
 - Systemd (for service installation)
+- Modern web browser with JavaScript enabled
 
 ## Installation Steps
 
@@ -76,11 +77,22 @@ Access the dashboard in your web browser:
 http://localhost:8888
 ```
 
-For the full dashboard with all features:
+## Features Overview
 
-```
-http://localhost:8888/full-dashboard
-```
+### Core Dashboard
+- Real-time resource monitoring
+- Pod, deployment, service, and namespace management
+- Cluster health monitoring
+- Alert notifications
+
+### Metrics Dashboard (NEW)
+- **Grafana-style interface** with dark theme
+- **Real-time API request tracking** with Submit, Delivered, and Failure counts
+- **Live traffic monitoring** with time ranges from 5 seconds to 6 hours
+- **Success rate calculation** from actual pod logs
+- **Interactive charts** powered by Chart.js
+- **Namespace and pod filtering** for targeted monitoring
+- **Historical data tracking** with 20-point rolling window
 
 ## Configuration Options
 
@@ -100,23 +112,57 @@ Change `port=8888` to your desired port number.
 Logs are stored in:
 
 ```
-/root/python-script/logs/k8s_dashboard.log
+/root/kubernetes-dashboard/logs/k8s_dashboard.log
 ```
 
 To view logs in real-time:
 
 ```bash
-tail -f /root/python-script/logs/k8s_dashboard.log
+tail -f /root/kubernetes-dashboard/logs/k8s_dashboard.log
 ```
 
-### Refresh Interval
+### Metrics Dashboard Configuration
 
-To change the refresh interval for the Pod Health Monitor, modify the `static/js/pod-health.js` file:
+The metrics dashboard automatically fetches data from pod logs. To monitor your applications:
 
+1. **Deploy your application** in a namespace (e.g., `dsdp`)
+2. **Ensure pods generate HTTP logs** in standard format
+3. **Navigate to Metrics tab** in the dashboard
+4. **Select your namespace** from the dropdown
+5. **Choose time range** for monitoring (5s to 6h)
+
+### Refresh Intervals
+
+**Pod Health Monitor:**
 ```javascript
-// Set up refresh interval
-setInterval(fetchPodHealthData, 10000); // 10000 ms = 10 seconds
+// In static/js/pod-health.js
+setInterval(fetchPodHealthData, 30000); // 30 seconds
 ```
+
+**Metrics Dashboard:**
+```javascript
+// In static/js/metrics.js
+setInterval(loadMetricsData, 30000); // 30 seconds
+```
+
+## API Endpoints
+
+### Core Endpoints
+- `GET /` - Dashboard home page
+- `GET /api/data` - Get all cluster resources
+- `GET /api/pod-health` - Get pod health status
+- `GET /api/hpa` - Get HPA information
+
+### Metrics Endpoints
+- `GET /api/request-metrics/<namespace>` - Get API request metrics
+  - Query Parameters:
+    - `time_range`: 5s, 10s, 30s, 60s, 5m, 15m, 1h, 6h (default: 1h)
+    - `pod`: Specific pod name (optional)
+  - Example:
+    ```bash
+    curl "http://localhost:8888/api/request-metrics/dsdp?time_range=5m"
+    curl "http://localhost:8888/api/request-metrics/dsdp?time_range=30s&pod=my-pod-123"
+    ```
 
 ## Troubleshooting
 
@@ -136,8 +182,58 @@ If the dashboard cannot connect to the Kubernetes API:
 
 3. Examine the dashboard logs:
    ```bash
-   tail -f /root/python-script/logs/k8s_dashboard.log
+   tail -f /root/kubernetes-dashboard/logs/k8s_dashboard.log
    ```
+
+### Metrics Dashboard Not Showing Data
+
+If the Metrics Dashboard is not showing data:
+
+1. **Verify namespace has pods:**
+   ```bash
+   kubectl get pods -n <namespace>
+   ```
+
+2. **Check pod logs are accessible:**
+   ```bash
+   kubectl logs -n <namespace> <pod-name> --tail=10
+   ```
+
+3. **Test the API endpoint:**
+   ```bash
+   curl "http://localhost:8888/api/request-metrics/<namespace>?time_range=5m"
+   ```
+
+4. **Check browser console** for JavaScript errors
+
+5. **Verify Chart.js is loaded:**
+   - Open browser developer tools
+   - Check Network tab for chart.js loading
+
+### API Request Metrics Shows Zero
+
+If API Request Metrics shows zero counts:
+
+1. **Verify pods are generating HTTP logs:**
+   ```bash
+   kubectl logs -n <namespace> -l app=<your-app> --tail=50 | grep "GET"
+   ```
+
+2. **Check log format** - Logs should contain:
+   - HTTP method (GET, POST, etc.)
+   - Status code (200, 404, 500, etc.)
+   - Example: `192.168.1.1 - - [06/Mar/2026:12:00:00 +0000] "GET / HTTP/1.1" 200 562`
+
+3. **Verify time range** - Try shorter ranges (5s, 10s) for immediate testing
+
+### Charts Not Updating
+
+If charts are not updating:
+
+1. **Check auto-refresh is enabled** (runs every 30 seconds)
+2. **Click Refresh button manually**
+3. **Clear browser cache** and reload
+4. **Check browser console** for errors
 
 ### Pod Health Monitor Not Showing Data
 
@@ -150,11 +246,11 @@ If the Pod Health Monitor section is not showing data:
 
 2. Verify that JavaScript is enabled in your browser
 3. Check the browser console for any errors
-4. Ensure the pod_health_monitor.py file is properly imported in the main server file
+4. Ensure the pod_health_monitor.py file is properly imported
 
 ### Details Modal Not Working
 
-If the pod details modal is not appearing when clicking the Details button:
+If the pod details modal is not appearing:
 
 1. Check the browser console for JavaScript errors
 2. Verify that Bootstrap is properly loaded
@@ -177,8 +273,37 @@ If the service won't start:
 
 3. Try running the script manually:
    ```bash
-   python3 /root/python-script/k8s_dashboard_server_updated.py
+   python3 /root/kubernetes-dashboard/k8s_dashboard_server_updated.py
    ```
+
+4. Check for port conflicts:
+   ```bash
+   sudo netstat -tulpn | grep 8888
+   ```
+
+## Testing the Metrics Dashboard
+
+To test the metrics dashboard with sample traffic:
+
+1. **Deploy a test application:**
+   ```bash
+   kubectl create namespace test-metrics
+   kubectl run nginx --image=nginx -n test-metrics
+   kubectl expose pod nginx --port=80 -n test-metrics
+   ```
+
+2. **Generate traffic:**
+   ```bash
+   kubectl run -it --rm load-test --image=busybox -n test-metrics -- /bin/sh
+   # Inside the pod:
+   while true; do wget -q -O- http://nginx; sleep 1; done
+   ```
+
+3. **View metrics:**
+   - Navigate to Metrics tab
+   - Select namespace: test-metrics
+   - Select time range: 30s or 60s
+   - Watch the API Request Metrics update
 
 ## Uninstallation
 
@@ -194,8 +319,26 @@ sudo rm /etc/systemd/system/k8s-dashboard.service
 
 # Reload systemd
 sudo systemctl daemon-reload
+
+# Optionally remove the repository
+cd ..
+rm -rf kubernetes-dashboard
 ```
 
 ## Next Steps
 
-After installation, refer to the README.md file for usage instructions and features.
+After installation:
+
+1. **Explore the Dashboard** - Navigate through different sections
+2. **Configure Monitoring** - Set up namespaces and applications to monitor
+3. **Review Documentation:**
+   - [README.md](README.md) - General usage and features
+   - [METRICS_REDESIGN.md](METRICS_REDESIGN.md) - Detailed metrics documentation
+   - [METRICS_UI_WINDOW_FIX.md](METRICS_UI_WINDOW_FIX.md) - UI improvements
+
+## Support
+
+For issues or questions:
+- Check the troubleshooting section above
+- Review the logs: `tail -f /root/kubernetes-dashboard/logs/k8s_dashboard.log`
+- Open an issue on GitHub: https://github.com/Arvind960/kubernetes-dashboard/issues
