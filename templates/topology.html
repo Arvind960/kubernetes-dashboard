@@ -10,6 +10,8 @@
         #header h1 { font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
         #header h1::before { content: '🗺️'; font-size: 28px; }
         .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .search-box { background: rgba(255,255,255,0.1); border: 2px solid rgba(59,130,246,0.3); padding: 8px 16px; border-radius: 8px; color: #fff; font-size: 14px; width: 250px; }
+        .search-box:focus { outline: none; border-color: #3b82f6; background: rgba(255,255,255,0.15); }
         .btn { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s; box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.5); }
         .btn:active { transform: translateY(0); }
@@ -44,6 +46,8 @@
     <div id="header">
         <h1>Kubernetes Topology Map</h1>
         <div class="controls">
+            <input type="text" class="search-box" id="podSearch" placeholder="Search pod name..." onkeyup="filterPod()" />
+            <button class="btn" onclick="showAll()">Show All</button>
             <div class="status-indicator">
                 <span class="status-dot disconnected" id="wsStatus"></span>
                 <span id="wsText">Disconnected</span>
@@ -80,10 +84,16 @@
         };
 
         async function loadTopology() {
-            const res = await fetch('/api/topology');
-            const data = await res.json();
-            renderGraph(data);
-            setTimeout(highlightPod, 500);
+            try {
+                document.getElementById('details').innerHTML = '⏳ Loading topology data...';
+                const res = await fetch('/api/topology');
+                const data = await res.json();
+                renderGraph(data);
+                setTimeout(highlightPod, 500);
+                document.getElementById('details').innerHTML = 'Click on any resource to view details';
+            } catch (error) {
+                document.getElementById('details').innerHTML = '❌ Error loading topology: ' + error.message;
+            }
         }
 
         function getNodeStyle(node) {
@@ -184,6 +194,10 @@
                     edgeLabel = e.path || '';
                 } else if (e.layer === 'network') {
                     edgeColor = '#3b82f6';
+                    // Add protocol info for pod-to-pod communication
+                    if (e.communication === 'pod-to-pod' && e.protocols) {
+                        edgeLabel = `📡 ${e.protocols.join('/')}`;
+                    }
                 } else if (e.type === 'scheduled_on') {
                     edgeColor = '#64748b';
                     dashes = [5, 5];
@@ -218,6 +232,10 @@
             });
 
             graphData = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            
+            // Store all nodes and edges for filtering
+            allNodes = nodes;
+            allEdges = edges.map(e => ({ from: e.from, to: e.to, ...e }));
             
             const options = {
                 physics: { 
@@ -313,17 +331,25 @@
                 if (data.ports && data.ports.length > 0) {
                     const portStr = data.ports.map(p => {
                         let str = `${p.port}→${p.target}`;
-                        if (p.node_port) str += ` (NodePort: ${p.node_port})`;
+                        if (p.protocol) str += ` (${p.protocol})`;
+                        if (p.node_port) str += ` [NodePort: ${p.node_port}]`;
                         return str;
                     }).join(', ');
-                    html += ` | <b>Ports:</b> ${portStr}`;
+                    html += ` | <b>Ports/Protocol:</b> ${portStr}`;
+                }
+                if (data.connected_pods && data.connected_pods.length > 0) {
+                    html += `<br><b>🔗 Pod-to-Pod Communication:</b> <span style="color: #60a5fa;">${data.connected_pods.join(', ')}</span>`;
                 }
             }
             
-            // Pod details
+            // Pod details - show immediately from cached data
             if (data.type === 'pod') {
                 if (data.ip) html += ` | <b>IP:</b> ${data.ip}`;
                 if (data.node) html += ` | <b>Node:</b> ${data.node}`;
+                if (data.labels) {
+                    const labelStr = Object.entries(data.labels).map(([k, v]) => `${k}=${v}`).slice(0, 3).join(', ');
+                    if (labelStr) html += ` | <b>Labels:</b> ${labelStr}`;
+                }
             }
             
             // Node details
@@ -361,6 +387,7 @@
                 html += `<br><b>📊 Network Layer:</b> <span style="color: #60a5fa;">${data.layer.toUpperCase()}</span>`;
             }
             
+            // Update DOM immediately with cached data
             document.getElementById('details').innerHTML = html;
         }
 
@@ -397,6 +424,68 @@
                 document.getElementById('wsStatus').className = 'status-dot disconnected';
                 document.getElementById('wsText').textContent = 'Disconnected';
             };
+        }
+
+        let allNodes = [], allEdges = [];
+
+        function filterPod() {
+            const searchTerm = document.getElementById('podSearch').value.toLowerCase().trim();
+            if (!searchTerm) {
+                showAll();
+                return;
+            }
+
+            // Find matching pods
+            const matchingNodes = allNodes.filter(n => 
+                n.data.type === 'pod' && n.data.label.toLowerCase().includes(searchTerm)
+            );
+
+            if (matchingNodes.length === 0) {
+                return;
+            }
+
+            // Get connected nodes (services, replicasets, deployments)
+            const connectedNodeIds = new Set();
+            matchingNodes.forEach(pod => connectedNodeIds.add(pod.id));
+
+            allEdges.forEach(edge => {
+                if (connectedNodeIds.has(edge.to)) {
+                    connectedNodeIds.add(edge.from);
+                }
+                if (connectedNodeIds.has(edge.from)) {
+                    connectedNodeIds.add(edge.to);
+                }
+            });
+
+            // Filter nodes and edges
+            const filteredNodes = allNodes.filter(n => connectedNodeIds.has(n.id));
+            const filteredEdges = allEdges.filter(e => 
+                connectedNodeIds.has(e.from) && connectedNodeIds.has(e.to)
+            );
+
+            // Update graph
+            graphData.nodes.clear();
+            graphData.edges.clear();
+            graphData.nodes.add(filteredNodes);
+            graphData.edges.add(filteredEdges);
+
+            // Focus on first matching pod
+            if (matchingNodes.length > 0) {
+                setTimeout(() => {
+                    network.fit({ nodes: [matchingNodes[0].id], animation: true });
+                }, 100);
+            }
+        }
+
+        function showAll() {
+            document.getElementById('podSearch').value = '';
+            if (allNodes.length > 0) {
+                graphData.nodes.clear();
+                graphData.edges.clear();
+                graphData.nodes.add(allNodes);
+                graphData.edges.add(allEdges);
+                setTimeout(() => network.fit({ animation: true }), 100);
+            }
         }
 
         loadTopology();

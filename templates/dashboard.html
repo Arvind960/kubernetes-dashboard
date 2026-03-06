@@ -16,6 +16,7 @@
         </div>
         <div class="sidebar-menu">
             <a href="/" class="active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+            <a href="/monitoring"><i class="fas fa-chart-line"></i> <span>Monitoring</span></a>
             <a href="#nodes-section"><i class="fas fa-server"></i> <span>Nodes</span></a>
             <a href="#pods-section"><i class="fas fa-cubes"></i> <span>Pods</span></a>
             <a href="#deployments-section"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
@@ -42,6 +43,15 @@
                     </select>
                 </div>
             </div>
+        </div>
+
+        <!-- Monitoring Integrations Banner -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-chart-line"></i> Monitoring Integrations</h3>
+                <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">CloudWatch: <span id="cw-status">Inactive</span> | Prometheus: <span id="prom-status">Not Configured</span></p>
+            </div>
+            <a href="/monitoring" style="background: white; color: #667eea; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold;">Configure →</a>
         </div>
 
         <!-- Dashboard Grid -->
@@ -181,6 +191,30 @@
                             Not Running
                         </div>
                         <div class="value" id="notRunningContainerCount">0 Not Running</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CloudWatch Metrics Card -->
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #9E9E9E 0%, #757575 100%); color: white;">
+                <h2 style="color: white;">
+                    <i class="fas fa-cloud"></i> CloudWatch Metrics
+                    <div class="actions">
+                        <a href="/monitoring" style="color: white;"><i class="fas fa-external-link-alt"></i></a>
+                    </div>
+                </h2>
+                <div class="status-list" id="cloudwatch-metrics">
+                    <div class="status-item" style="color: white;">
+                        <div class="label" style="color: white;">Status</div>
+                        <div class="value">Inactive</div>
+                    </div>
+                    <div class="status-item" style="color: white;">
+                        <div class="label" style="color: white;">Exporter</div>
+                        <div class="value">Stopped</div>
+                    </div>
+                    <div class="status-item" style="color: white;">
+                        <div class="label" style="color: white;">Metrics</div>
+                        <div class="value">Expiring</div>
                     </div>
                 </div>
             </div>
@@ -365,6 +399,21 @@
                     <div class="alert-item info">No active alerts</div>
                 </div>
             </div>
+
+            <!-- Pod Communication Flow Card -->
+            <div class="dashboard-card" style="grid-column: span 2;">
+                <h2>
+                    <i class="fas fa-exchange-alt"></i> Pod-to-Pod Communication
+                    <button class="btn btn-sm btn-primary" onclick="loadPodCommunication()" style="float: right; font-size: 12px;">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </h2>
+                <div id="podCommunicationContent" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center p-3">
+                        <i class="fas fa-spinner fa-spin"></i> Loading communication flows...
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Link to Full Dashboard -->
@@ -375,5 +424,53 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/dashboard.js"></script>
+    <script>
+    // Load pod communication on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPodCommunication();
+    });
+
+    function loadPodCommunication() {
+        fetch('/api/pod-communication')
+            .then(response => response.json())
+            .then(data => {
+                const content = document.getElementById('podCommunicationContent');
+                if (data.flows && data.flows.length > 0) {
+                    let html = '<div class="table-responsive"><table class="table table-sm table-hover">';
+                    html += '<thead><tr><th>Service</th><th>Namespace</th><th>Protocol</th><th>Port</th><th>Target Pods</th><th>Endpoints</th></tr></thead><tbody>';
+                    
+                    data.flows.forEach(flow => {
+                        const podList = flow.target_pods.map(p => 
+                            `<span class="badge bg-${p.status === 'Running' ? 'success' : 'warning'}" title="${p.ip}">${p.name}</span>`
+                        ).join(' ');
+                        
+                        const endpoints = flow.endpoint_ips.length > 0 
+                            ? flow.endpoint_ips.map(ip => `<code>${ip}</code>`).join(', ')
+                            : '<span class="text-muted">No endpoints</span>';
+                        
+                        html += `<tr>
+                            <td><strong>${flow.service_name}</strong><br><small class="text-muted">${flow.service_type}</small></td>
+                            <td><span class="badge bg-info">${flow.namespace}</span></td>
+                            <td><span class="badge bg-secondary">${flow.protocol}</span></td>
+                            <td><code>${flow.service_port}</code> → <code>${flow.target_port}</code><br><small class="text-muted">${flow.port_name}</small></td>
+                            <td>${podList}</td>
+                            <td style="font-size: 11px;">${endpoints}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    html += `<div class="text-muted text-center mt-2"><small>Total: ${data.total} communication flows</small></div>`;
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div class="alert alert-info">No pod communication flows found</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading pod communication:', error);
+                document.getElementById('podCommunicationContent').innerHTML = 
+                    '<div class="alert alert-danger">Error loading communication flows</div>';
+            });
+    }
+    </script>
 </body>
 </html>

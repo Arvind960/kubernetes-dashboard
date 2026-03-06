@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monitoring Integrations</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; }
+        .integration-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-top: 30px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h2 { margin-top: 0; color: #0066cc; }
+        .status { display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .status.active { background: #d4edda; color: #155724; }
+        .status.inactive { background: #f8d7da; color: #721c24; }
+        button { background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0052a3; }
+        button.secondary { background: #6c757d; }
+        button.secondary:hover { background: #545b62; }
+        .metrics { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 14px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #0066cc; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+        <h1>Monitoring Integrations</h1>
+        
+        <div class="integration-grid">
+            <!-- CloudWatch -->
+            <div class="card">
+                <h2>AWS CloudWatch</h2>
+                <span class="status inactive">INACTIVE</span>
+                <p>CloudWatch exporter has been stopped. Metrics will expire in AWS.</p>
+                <div class="metrics" id="cloudwatch-metrics">
+                    <strong>Status:</strong><br>
+                    Exporter: Stopped<br>
+                    Metrics: Will expire after 15 months<br>
+                    Last collection: Stopped
+                </div>
+                <button onclick="viewCloudWatch()">View AWS Console</button>
+                <button class="secondary" onclick="restartCloudWatch()">Restart Exporter</button>
+            </div>
+
+            <!-- Prometheus -->
+            <div class="card">
+                <h2>Prometheus</h2>
+                <span class="status inactive">NOT CONFIGURED</span>
+                <p>Collect and query metrics using Prometheus</p>
+                <div class="metrics">
+                    <strong>Setup Required:</strong><br>
+                    1. Deploy Prometheus in cluster<br>
+                    2. Configure ServiceMonitor<br>
+                    3. Connect to dashboard
+                </div>
+                <button onclick="setupPrometheus()">Setup Prometheus</button>
+                <button class="secondary" onclick="viewPrometheusGuide()">View Guide</button>
+            </div>
+
+            <!-- Azure Monitor -->
+            <div class="card">
+                <h2>Azure Monitor</h2>
+                <span class="status inactive">NOT CONFIGURED</span>
+                <p>Monitor AKS clusters with Azure Container Insights</p>
+                <div class="metrics">
+                    <strong>Setup Required:</strong><br>
+                    1. Enable Container Insights on AKS<br>
+                    2. Configure Log Analytics<br>
+                    3. Connect to dashboard
+                </div>
+                <button onclick="setupAzure()">Setup Azure Monitor</button>
+                <button class="secondary" onclick="viewAzureGuide()">View Guide</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load CloudWatch metrics
+        async function loadCloudWatchMetrics() {
+            try {
+                const response = await fetch('/api/cloudwatch/cluster/kubernetes');
+                const data = await response.json();
+                const metricsDiv = document.getElementById('cloudwatch-metrics');
+                if (data.metrics) {
+                    metricsDiv.innerHTML = `
+                        <strong>Cluster Metrics:</strong><br>
+                        Nodes: ${data.metrics.cluster_node_count?.value || 'N/A'}<br>
+                        Running Pods: ${data.metrics.namespace_number_of_running_pods?.value || 'N/A'}<br>
+                        Failed Pods: ${data.metrics.pod_failed_count?.value || 'N/A'}
+                    `;
+                } else {
+                    metricsDiv.innerHTML = '<em>No metrics available</em>';
+                }
+            } catch (error) {
+                document.getElementById('cloudwatch-metrics').innerHTML = '<em>Error loading metrics</em>';
+            }
+        }
+
+        function viewCloudWatch() {
+            window.open('https://ap-south-1.console.aws.amazon.com/cloudwatch/home?region=ap-south-1#metricsV2:graph=~();namespace=ContainerInsights', '_blank');
+        }
+
+        async function testCloudWatch() {
+            alert('Testing CloudWatch connection...');
+            try {
+                const response = await fetch('/api/cloudwatch/cluster/kubernetes');
+                if (response.ok) {
+                    alert('✓ CloudWatch connection successful!');
+                } else {
+                    alert('✗ CloudWatch connection failed');
+                }
+            } catch (error) {
+                alert('✗ Error: ' + error.message);
+            }
+        }
+
+        function setupPrometheus() {
+            if (confirm('Install Prometheus using Helm?\n\nThis will run:\nhelm install prometheus prometheus-community/kube-prometheus-stack')) {
+                alert('Prometheus setup initiated. Check terminal for progress.');
+                fetch('/api/setup/prometheus', { method: 'POST' });
+            }
+        }
+
+        function viewPrometheusGuide() {
+            alert('Prometheus Setup Guide:\n\n1. Add Helm repo:\n   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts\n\n2. Install:\n   helm install prometheus prometheus-community/kube-prometheus-stack\n\n3. Access Prometheus:\n   kubectl port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090\n\n4. Access Grafana:\n   kubectl port-forward svc/prometheus-grafana 3000:80');
+        }
+
+        function setupAzure() {
+            alert('Azure Monitor Setup:\n\n1. Enable Container Insights on your AKS cluster:\n   az aks enable-addons -a monitoring -n <cluster-name> -g <resource-group>\n\n2. Configure Log Analytics workspace\n\n3. View metrics in Azure Portal');
+        }
+
+        function viewAzureGuide() {
+            window.open('https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-overview', '_blank');
+        }
+
+        function restartCloudWatch() {
+            if (confirm('Restart CloudWatch exporter?\n\nThis will resume sending metrics to AWS CloudWatch.')) {
+                alert('Run: cd /root/kubernetes-dashboard && nohup python3 k8s_cloudwatch_exporter.py >> logs/cloudwatch_exporter.log 2>&1 &');
+            }
+        }
+
+        // Load metrics on page load
+        loadCloudWatchMetrics();
+        setInterval(loadCloudWatchMetrics, 30000); // Refresh every 30 seconds
+    </script>
+</body>
+</html>

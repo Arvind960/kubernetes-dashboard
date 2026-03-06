@@ -4,6 +4,7 @@ import asyncio
 import json
 from typing import Dict, List
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +21,10 @@ apps_v1 = client.AppsV1Api()
 net_v1 = client.NetworkingV1Api()
 
 class TopologyBuilder:
+    def __init__(self):
+        self._cache = None
+        self._cache_time = 0
+        self._cache_ttl = 30  # Cache for 30 seconds for production
     def match_labels(self, selector: dict, labels: dict) -> bool:
         if not selector or not labels:
             return False
@@ -98,25 +103,36 @@ class TopologyBuilder:
         return 'unknown'
     
     def build_topology(self) -> Dict:
+        # Return cached data if still valid
+        current_time = time.time()
+        if self._cache and (current_time - self._cache_time) < self._cache_ttl:
+            logger.info("Returning cached topology data")
+            return self._cache
+        
+        logger.info("Building fresh topology data")
         nodes, edges = [], []
         node_id = 0
         
         # Get resources
-        namespaces = v1.list_namespace().items
-        pods = v1.list_pod_for_all_namespaces().items
-        services = v1.list_service_for_all_namespaces().items
-        deployments = apps_v1.list_deployment_for_all_namespaces().items
-        replicasets = apps_v1.list_replica_set_for_all_namespaces().items
         try:
-            ingresses = net_v1.list_ingress_for_all_namespaces().items
-        except:
-            ingresses = []
-        
-        # Get nodes for infrastructure layer
-        try:
-            k8s_nodes = v1.list_node().items
-        except:
-            k8s_nodes = []
+            pods = v1.list_pod_for_all_namespaces().items
+            services = v1.list_service_for_all_namespaces().items
+            deployments = apps_v1.list_deployment_for_all_namespaces().items
+            replicasets = apps_v1.list_replica_set_for_all_namespaces().items
+            namespaces = v1.list_namespace().items
+            
+            try:
+                ingresses = net_v1.list_ingress_for_all_namespaces().items
+            except:
+                ingresses = []
+            
+            try:
+                k8s_nodes = v1.list_node().items
+            except:
+                k8s_nodes = []
+        except Exception as e:
+            logger.error(f"Error fetching topology data: {e}")
+            return {'nodes': [], 'edges': []}
         
         # Maps
         pod_map, rs_map, deploy_map, svc_map, node_map, ns_map = {}, {}, {}, {}, {}, {}
@@ -225,7 +241,7 @@ class TopologyBuilder:
                 'id': svc_id, 'type': 'service', 'label': svc.metadata.name,
                 'namespace': svc.metadata.namespace, 'svc_type': svc.spec.type,
                 'cluster_ip': svc.spec.cluster_ip, 'selector': svc.spec.selector or {},
-                'ports': [{'port': p.port, 'target': p.target_port, 'node_port': getattr(p, 'node_port', None)} for p in (svc.spec.ports or [])],
+                'ports': [{'port': p.port, 'target': p.target_port, 'protocol': p.protocol, 'node_port': getattr(p, 'node_port', None)} for p in (svc.spec.ports or [])],
                 'external_access': svc_info['external_access'], 'external_ip': svc_info['external_ip'],
                 'layer': 'network'
             })
@@ -233,18 +249,30 @@ class TopologyBuilder:
             
             # Service → Pods (Traffic routing)
             pod_count = 0
+            connected_pods = []
             for pod in pods:
                 if pod.metadata.namespace == svc.metadata.namespace:
                     if self.match_labels(svc.spec.selector, pod.metadata.labels):
                         pod_id = pod_map.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
                         if pod_id:
                             pod_count += 1
-                            edges.append({'source': svc_id, 'target': pod_id, 'type': 'routes', 'layer': 'network'})
+                            connected_pods.append(pod.metadata.name)
+                            # Add protocol info to edge
+                            protocols = list(set([p.protocol for p in (svc.spec.ports or [])]))
+                            edges.append({
+                                'source': svc_id, 
+                                'target': pod_id, 
+                                'type': 'routes', 
+                                'layer': 'network',
+                                'protocols': protocols,
+                                'communication': 'pod-to-pod'
+                            })
             
             # Update service with endpoint count
             for node in nodes:
                 if node['id'] == svc_id:
                     node['endpoints'] = pod_count
+                    node['connected_pods'] = connected_pods
                     break
         
         # Layer 7: Ingress (External Access & L7 Load Balancing)
@@ -272,9 +300,33 @@ class TopologyBuilder:
                     if svc_id:
                         edges.append({'source': ing_id, 'target': svc_id, 'type': 'routes', 'path': rule.get('path', '/'), 'layer': 'ingress'})
         
-        return {'nodes': nodes, 'edges': edges}
+        result = {'nodes': nodes, 'edges': edges}
+        
+        # Cache the result
+        self._cache = result
+        self._cache_time = time.time()
+        logger.info(f"Topology built: {len(nodes)} nodes, {len(edges)} edges")
+        
+        return result
 
 topology = TopologyBuilder()
+
+# Background cache warmer
+async def warm_cache():
+    """Periodically refresh topology cache in background"""
+    while True:
+        try:
+            await asyncio.sleep(25)  # Refresh every 25 seconds (before 30s TTL expires)
+            logger.info("Background cache refresh")
+            topology.build_topology()
+        except Exception as e:
+            logger.error(f"Cache warm error: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background tasks on startup"""
+    asyncio.create_task(warm_cache())
+    logger.info("Background cache warmer started")
 
 @app.get("/api/topology")
 async def get_topology():

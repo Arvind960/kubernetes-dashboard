@@ -684,9 +684,10 @@
             <a href="#" onclick="showSection('pods-section')"><i class="fas fa-cubes"></i> <span>Pods</span></a>
             <a href="#" onclick="showSection('deployments-section')"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
             <a href="#" onclick="showSection('services-section')"><i class="fas fa-network-wired"></i> <span>Services</span></a>
+            <a href="#" onclick="showSection('hpa-section')"><i class="fas fa-chart-line"></i> <span>HPA</span></a>
             <a href="#" onclick="showSection('namespaces-section')"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
             <a href="#" onclick="showSection('alerts-section')"><i class="fas fa-exclamation-triangle"></i> <span>Alerts</span></a>
-            <a href="http://192.168.47.138:8889" target="_blank"><i class="fas fa-robot"></i> <span>Chatbot</span></a>
+            <a href="http://192.168.47.152:8888/chatbot" target="_blank"><i class="fas fa-robot"></i> <span>Chatbot</span></a>
         </div>
     </div>
         <div class="main-content">
@@ -841,6 +842,15 @@
                            <div class="stat-info">
                                 <h2 class="stat-value" id="statefulSetCount">0</h2>
                                 <p class="stat-label">StatefulSets</p>
+                           </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon hpa">
+                                <i class="fas fa-chart-line" style="color: #3498db;"></i>
+                           </div>
+                           <div class="stat-info">
+                                <h2 class="stat-value" id="hpaCount">0</h2>
+                                <p class="stat-label">HPAs</p>
                            </div>
                         </div>
                     </div>
@@ -1112,6 +1122,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- Pod-to-Pod Communication Section -->
+        <div class="col-md-12 mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-exchange-alt"></i>
+                        Pod-to-Pod Communication
+                    </h2>
+                    <button class="btn btn-sm btn-primary" onclick="loadPodCommunication()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="podCommunicationContent">
+                        <div class="text-center p-3">
+                            <i class="fas fa-spinner fa-spin"></i> Loading communication flows...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <!-- Deployments Section -->
     <div class="row mb-4" id="deployments-section">
@@ -1170,6 +1202,29 @@
                             </thead>
                             <tbody id="servicesTable"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- HPA Section -->
+    <div class="row mb-4" id="hpa-section" style="display: none;">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-chart-line"></i>
+                        Horizontal Pod Autoscalers (HPA)
+                    </h2>
+                    <button class="btn btn-sm btn-primary" onclick="loadHPA()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="hpaContent">
+                        <div class="text-center p-3">
+                            <i class="fas fa-spinner fa-spin"></i> Loading HPA...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1925,6 +1980,7 @@ function showSection(sectionId) {
         'pods-section',
         'deployments-section',
         'services-section',
+        'hpa-section',
         'namespaces-section',
         'alerts-section'
     ];
@@ -1946,7 +2002,7 @@ function showSection(sectionId) {
 
 window.onload = () => {
     // Hide all but dashboard on load
-    document.querySelectorAll('#nodes-section, #pods-section, #deployments-section, #services-section, #namespaces-section, #alerts-section')
+    document.querySelectorAll('#nodes-section, #pods-section, #deployments-section, #services-section, #hpa-section, #namespaces-section, #alerts-section')
         .forEach(el => el.style.display = 'none');
     const dashboard = document.getElementById('dashboard-section');
     if (dashboard) dashboard.style.display = 'block';
@@ -2045,4 +2101,95 @@ function copyYaml() {
         alert('YAML copied to clipboard!');
     });
 }
+
+function loadPodCommunication() {
+    fetch('/api/pod-communication')
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('podCommunicationContent');
+            if (data.flows && data.flows.length > 0) {
+                let html = '<div class="table-responsive"><table class="table table-sm table-hover table-dark">';
+                html += '<thead><tr><th>Service</th><th>Namespace</th><th>Protocol</th><th>Port</th><th>Target Pods</th><th>Endpoints</th></tr></thead><tbody>';
+                
+                data.flows.forEach(flow => {
+                    const podList = flow.target_pods.map(p => 
+                        `<span class="badge bg-${p.status === 'Running' ? 'success' : 'warning'}" title="${p.ip}">${p.name}</span>`
+                    ).join(' ');
+                    
+                    const endpoints = flow.endpoint_ips.length > 0 
+                        ? flow.endpoint_ips.map(ip => `<code style="background: #333; color: #0f0; padding: 2px 6px; border-radius: 3px;">${ip}</code>`).join(' ')
+                        : '<span style="color: #999;">No endpoints</span>';
+                    
+                    html += `<tr>
+                        <td><strong style="color: #fff;">${flow.service_name}</strong><br><small style="color: #aaa;">${flow.service_type}</small></td>
+                        <td><span class="badge bg-info">${flow.namespace}</span></td>
+                        <td><span class="badge bg-secondary">${flow.protocol}</span></td>
+                        <td><code style="background: #333; color: #0f0; padding: 2px 6px; border-radius: 3px;">${flow.service_port}</code> → <code style="background: #333; color: #0f0; padding: 2px 6px; border-radius: 3px;">${flow.target_port}</code><br><small style="color: #aaa;">${flow.port_name}</small></td>
+                        <td>${podList}</td>
+                        <td style="font-size: 11px;">${endpoints}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                html += `<div class="text-center mt-2" style="color: #aaa;"><small>Total: ${data.total} communication flows</small></div>`;
+                content.innerHTML = html;
+            } else {
+                content.innerHTML = '<div class="alert alert-info">No pod communication flows found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading pod communication:', error);
+            document.getElementById('podCommunicationContent').innerHTML = 
+                '<div class="alert alert-danger">Error loading communication flows</div>';
+        });
+}
+
+function loadHPA() {
+    fetch('/api/hpa')
+        .then(response => response.json())
+        .then(data => {
+            // Update count in overview
+            document.getElementById('hpaCount').textContent = data.total || 0;
+            
+            const content = document.getElementById('hpaContent');
+            if (data.hpas && data.hpas.length > 0) {
+                let html = '<div class="table-responsive"><table class="table table-sm table-hover table-dark">';
+                html += '<thead><tr><th>Name</th><th>Namespace</th><th>Target</th><th>Min/Max</th><th>Current/Desired</th><th>Metrics Target</th><th>Current Metrics</th><th>Age</th></tr></thead><tbody>';
+                
+                data.hpas.forEach(hpa => {
+                    const status = hpa.current_replicas === hpa.desired_replicas ? 'success' : 'warning';
+                    const metricsTarget = hpa.metrics.join(', ') || 'N/A';
+                    const metricsCurrent = hpa.current_metrics.join(', ') || 'N/A';
+                    
+                    html += `<tr>
+                        <td><strong style="color: #fff;">${hpa.name}</strong></td>
+                        <td><span class="badge bg-info">${hpa.namespace}</span></td>
+                        <td><code style="background: #333; color: #0f0; padding: 2px 6px; border-radius: 3px;">${hpa.target}</code></td>
+                        <td><span class="badge bg-secondary">${hpa.min_replicas} / ${hpa.max_replicas}</span></td>
+                        <td><span class="badge bg-${status}">${hpa.current_replicas} / ${hpa.desired_replicas}</span></td>
+                        <td><small style="color: #aaa;">${metricsTarget}</small></td>
+                        <td><small style="color: #0f0;">${metricsCurrent}</small></td>
+                        <td><small style="color: #aaa;">${hpa.age}</small></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                html += `<div class="text-center mt-2" style="color: #aaa;"><small>Total: ${data.total} HPAs</small></div>`;
+                content.innerHTML = html;
+            } else {
+                content.innerHTML = '<div class="alert alert-info">No Horizontal Pod Autoscalers found</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading HPA:', error);
+            document.getElementById('hpaContent').innerHTML = 
+                '<div class="alert alert-danger">Error loading HPA</div>';
+        });
+}
+
+// Load pod communication when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadPodCommunication, 1000);
+    setTimeout(loadHPA, 1500);
+});
 </script>

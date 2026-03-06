@@ -35,6 +35,11 @@ sys.stderr = open(log_file, 'a', buffering=1)
 
 app = Flask(__name__)
 
+# Register CloudWatch blueprint
+from cloudwatch_api import cloudwatch_bp
+app.register_blueprint(cloudwatch_bp)
+logger.info("CloudWatch integration enabled")
+
 # Load Kubernetes configuration
 try:
     config.load_kube_config()
@@ -51,10 +56,56 @@ v1 = client.CoreV1Api()
 apps_v1 = client.AppsV1Api()
 storage_v1 = client.StorageV1Api()
 networking_v1 = client.NetworkingV1Api()
+autoscaling_v1 = client.AutoscalingV1Api()
+autoscaling_v2 = client.AutoscalingV2Api()
+
+def format_age(creation_timestamp):
+    """Format age in human readable format (hours, days, months)"""
+    if not creation_timestamp:
+        return 'Unknown'
+    
+    age = datetime.datetime.now(datetime.timezone.utc) - creation_timestamp
+    days = age.days
+    hours = age.seconds // 3600
+    
+    if days >= 30:
+        months = days // 30
+        return f"{months}mo" if months == 1 else f"{months}mo"
+    elif days > 0:
+        return f"{days}d" if days == 1 else f"{days}d"
+    elif hours > 0:
+        return f"{hours}h"
+    else:
+        minutes = age.seconds // 60
+        return f"{minutes}m"
 
 @app.route('/')
 def index():
     return render_template('dashboard.html', running_mode='')
+
+@app.route('/chatbot')
+def chatbot():
+    return render_template('chatbot.html')
+
+@app.route('/api/chatbot', methods=['POST'])
+def chatbot_api():
+    try:
+        from ai_chatbot import K8sAIChatbot
+        
+        data = request.get_json()
+        user_message = data.get('message', '')
+        
+        if not user_message:
+            return jsonify({'response': 'Please enter a message.'})
+        
+        # Initialize AI chatbot
+        chatbot = K8sAIChatbot(v1, apps_v1)
+        response = chatbot.get_ai_response(user_message)
+        
+        return jsonify({'response': response})
+    except Exception as e:
+        logger.error(f"Chatbot error: {e}")
+        return jsonify({'response': f'Error: {str(e)}'})
 
 @app.route('/graph')
 def graph():
@@ -67,6 +118,10 @@ def graph_test():
 @app.route('/topology')
 def topology():
     return render_template('topology.html')
+
+@app.route('/monitoring')
+def monitoring():
+    return render_template('monitoring_integrations.html')
 
 def match_labels(selector, labels):
     if not selector or not labels:
@@ -165,17 +220,37 @@ def get_topology_data():
                 'id': svc_id, 'type': 'service', 'label': svc.metadata.name,
                 'namespace': svc.metadata.namespace, 'svc_type': svc.spec.type,
                 'cluster_ip': svc.spec.cluster_ip, 'selector': svc.spec.selector or {},
-                'ports': [{'port': p.port, 'target': p.target_port} for p in (svc.spec.ports or [])]
+                'ports': [{'port': p.port, 'target': p.target_port, 'protocol': p.protocol, 'node_port': getattr(p, 'node_port', None)} for p in (svc.spec.ports or [])]
             })
             node_id += 1
             
-            # Service → Pods
+            # Service → Pods (Track pod-to-pod communication)
+            pod_count = 0
+            connected_pods = []
             for pod in pods:
                 if pod.metadata.namespace == svc.metadata.namespace:
                     if match_labels(svc.spec.selector, pod.metadata.labels):
                         pod_id = pod_map.get(f"{pod.metadata.namespace}/{pod.metadata.name}")
                         if pod_id:
-                            edges.append({'source': svc_id, 'target': pod_id, 'type': 'routes'})
+                            pod_count += 1
+                            connected_pods.append(pod.metadata.name)
+                            # Add protocol info to edge
+                            protocols = list(set([p.protocol for p in (svc.spec.ports or [])]))
+                            edges.append({
+                                'source': svc_id, 
+                                'target': pod_id, 
+                                'type': 'routes',
+                                'layer': 'network',
+                                'protocols': protocols,
+                                'communication': 'pod-to-pod'
+                            })
+            
+            # Update service node with connected pods
+            for node in nodes:
+                if node['id'] == svc_id:
+                    node['endpoints'] = pod_count
+                    node['connected_pods'] = connected_pods
+                    break
         
         # Ingress
         for ing in ingresses:
@@ -469,6 +544,26 @@ def get_data():
             # Get service cluster IP
             cluster_ip = service.spec.cluster_ip or "N/A"
             
+            # Get endpoints count
+            endpoint_count = 0
+            endpoint_addresses = []
+            try:
+                endpoints = v1.read_namespaced_endpoints(
+                    name=service.metadata.name,
+                    namespace=service.metadata.namespace
+                )
+                if endpoints.subsets:
+                    for subset in endpoints.subsets:
+                        if subset.addresses:
+                            endpoint_count += len(subset.addresses)
+                            for addr in subset.addresses:
+                                endpoint_addresses.append({
+                                    "ip": addr.ip,
+                                    "target_ref": addr.target_ref.name if addr.target_ref else None
+                                })
+            except:
+                endpoint_count = 0
+            
             # Get service external IP
             external_ip = "N/A"
             if service.status.load_balancer.ingress:
@@ -516,6 +611,9 @@ def get_data():
                         port_info["node_port"] = port.node_port
                     ports.append(port_info)
             
+            # Get selector
+            selector = service.spec.selector if service.spec.selector else {}
+            
             services.append({
                 "name": service.metadata.name,
                 "namespace": service.metadata.namespace,
@@ -524,7 +622,10 @@ def get_data():
                 "external_ip": external_ip,
                 "ports": ports,
                 "creation_time": creation_time,
-                "age": age
+                "age": age,
+                "endpoint_count": endpoint_count,
+                "endpoints": endpoint_addresses,
+                "selector": selector
             })
         
         # Get deployments
@@ -1307,6 +1408,151 @@ def get_graph():
     except Exception as e:
         logger.error(f"Error generating graph: {e}")
         return jsonify({'error': str(e), 'nodes': [], 'edges': []}), 500
+
+@app.route('/api/setup/prometheus', methods=['POST'])
+def setup_prometheus():
+    try:
+        logger.info("Prometheus setup requested")
+        return jsonify({'status': 'initiated', 'message': 'Run: helm install prometheus prometheus-community/kube-prometheus-stack'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pod-communication')
+def get_pod_communication():
+    """Get pod-to-pod communication flows with protocols and endpoints"""
+    try:
+        pods = v1.list_pod_for_all_namespaces().items
+        services = v1.list_service_for_all_namespaces().items
+        
+        flows = []
+        
+        for svc in services:
+            if not svc.spec.selector:
+                continue
+            
+            # Find pods matching service selector
+            target_pods = []
+            connected_pod_names = []
+            for pod in pods:
+                if pod.metadata.namespace == svc.metadata.namespace:
+                    if match_labels(svc.spec.selector, pod.metadata.labels):
+                        target_pods.append(pod)
+                        connected_pod_names.append(pod.metadata.name)
+            
+            if not target_pods:
+                continue
+            
+            # Get service endpoints
+            try:
+                endpoints = v1.read_namespaced_endpoints(svc.metadata.name, svc.metadata.namespace)
+                endpoint_ips = []
+                if endpoints.subsets:
+                    for subset in endpoints.subsets:
+                        if subset.addresses:
+                            endpoint_ips.extend([addr.ip for addr in subset.addresses])
+            except:
+                endpoint_ips = []
+            
+            # Build flow for each port
+            for port in (svc.spec.ports or []):
+                protocol = port.protocol or "TCP"
+                service_port = port.port
+                target_port = port.target_port if hasattr(port, 'target_port') else service_port
+                
+                flows.append({
+                    'service_name': svc.metadata.name,
+                    'namespace': svc.metadata.namespace,
+                    'service_type': svc.spec.type,
+                    'cluster_ip': svc.spec.cluster_ip,
+                    'protocol': protocol,
+                    'service_port': service_port,
+                    'target_port': target_port,
+                    'port_name': port.name or f"port-{service_port}",
+                    'target_pods': [{'name': p.metadata.name, 'ip': p.status.pod_ip, 'status': p.status.phase} for p in target_pods],
+                    'connected_pods': connected_pod_names,
+                    'endpoint_ips': endpoint_ips,
+                    'endpoints': len(endpoint_ips),
+                    'selector': svc.spec.selector
+                })
+        
+        return jsonify({'flows': flows, 'total': len(flows)})
+    except Exception as e:
+        logger.error(f"Error getting pod communication: {e}")
+        return jsonify({'error': str(e), 'flows': []}), 500
+
+@app.route('/api/hpa')
+def get_hpa():
+    """Get Horizontal Pod Autoscaler information"""
+    try:
+        hpas = []
+        
+        # Try v2 API first (newer)
+        try:
+            hpa_list = autoscaling_v2.list_horizontal_pod_autoscaler_for_all_namespaces()
+            for hpa in hpa_list.items:
+                current_replicas = hpa.status.current_replicas or 0
+                desired_replicas = hpa.status.desired_replicas or 0
+                min_replicas = hpa.spec.min_replicas or 1
+                max_replicas = hpa.spec.max_replicas
+                
+                # Get metrics
+                metrics = []
+                if hpa.spec.metrics:
+                    for metric in hpa.spec.metrics:
+                        if metric.type == 'Resource':
+                            metric_name = metric.resource.name
+                            target = metric.resource.target.average_utilization or metric.resource.target.average_value
+                            metrics.append(f"{metric_name}: {target}%")
+                
+                # Get current metrics from status
+                current_metrics = []
+                if hpa.status.current_metrics:
+                    for metric in hpa.status.current_metrics:
+                        if metric.type == 'Resource':
+                            current = metric.resource.current.average_utilization or metric.resource.current.average_value
+                            current_metrics.append(f"{metric.resource.name}: {current}%")
+                
+                hpas.append({
+                    'name': hpa.metadata.name,
+                    'namespace': hpa.metadata.namespace,
+                    'target': f"{hpa.spec.scale_target_ref.kind}/{hpa.spec.scale_target_ref.name}",
+                    'min_replicas': min_replicas,
+                    'max_replicas': max_replicas,
+                    'current_replicas': current_replicas,
+                    'desired_replicas': desired_replicas,
+                    'metrics': metrics,
+                    'current_metrics': current_metrics,
+                    'age': format_age(hpa.metadata.creation_timestamp)
+                })
+        except:
+            # Fallback to v1 API
+            hpa_list = autoscaling_v1.list_horizontal_pod_autoscaler_for_all_namespaces()
+            for hpa in hpa_list.items:
+                current_replicas = hpa.status.current_replicas or 0
+                desired_replicas = hpa.status.desired_replicas or 0
+                min_replicas = hpa.spec.min_replicas or 1
+                max_replicas = hpa.spec.max_replicas
+                
+                cpu_target = hpa.spec.target_cpu_utilization_percentage or 'N/A'
+                cpu_current = hpa.status.current_cpu_utilization_percentage or 'N/A'
+                
+                hpas.append({
+                    'name': hpa.metadata.name,
+                    'namespace': hpa.metadata.namespace,
+                    'target': f"{hpa.spec.scale_target_ref.kind}/{hpa.spec.scale_target_ref.name}",
+                    'min_replicas': min_replicas,
+                    'max_replicas': max_replicas,
+                    'current_replicas': current_replicas,
+                    'desired_replicas': desired_replicas,
+                    'metrics': [f"CPU: {cpu_target}%"] if cpu_target != 'N/A' else [],
+                    'current_metrics': [f"CPU: {cpu_current}%"] if cpu_current != 'N/A' else [],
+                    'age': format_age(hpa.metadata.creation_timestamp)
+                })
+        
+        return jsonify({'hpas': hpas, 'total': len(hpas)})
+    except Exception as e:
+        logger.error(f"Error getting HPA: {e}")
+        return jsonify({'error': str(e), 'flows': []}), 500
 
 if __name__ == '__main__':
     logger.info("Starting Kubernetes Dashboard Server")
