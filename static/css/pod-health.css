@@ -12,6 +12,7 @@
     flex-wrap: wrap;
     gap: 20px;
     margin-bottom: 20px;
+    justify-content: flex-start;
 }
 
 .health-metric {
@@ -20,7 +21,14 @@
     box-shadow: 0 4px 6px rgba(50, 108, 229, 0.08);
     padding: 15px;
     min-width: 120px;
+    flex: 0 1 auto;
     text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.health-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(50, 108, 229, 0.15);
 }
 
 .health-metric-value {
@@ -37,6 +45,10 @@
     color: #ffbe0b;
 }
 
+.health-metric-value.danger {
+    color: #ff6b6b;
+}
+
 .health-metric-value.error {
     color: #ff6b6b;
 }
@@ -44,6 +56,7 @@
 .health-metric-label {
     font-size: 14px;
     color: #666;
+    white-space: nowrap;
 }
 
 .hang-detection-panel h4 {
@@ -88,4 +101,28 @@
 .status-badge.failed {
     background-color: rgba(255, 107, 107, 0.1);
     color: #ff6b6b;
+}
+
+/* Modal improvements for better display */
+.modal-dialog-scrollable .modal-body {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-xl {
+    max-width: 1140px;
+}
+
+@media (max-width: 768px) {
+    .health-metrics-summary {
+        flex-direction: column;
+    }
+    
+    .health-metric {
+        width: 100%;
+    }
 }

@@ -1554,6 +1554,73 @@ def get_hpa():
         logger.error(f"Error getting HPA: {e}")
         return jsonify({'error': str(e), 'flows': []}), 500
 
+@app.route('/api/request-metrics/<namespace>')
+def get_request_metrics(namespace):
+    """Get real request metrics from pod logs"""
+    try:
+        pod_name = request.args.get('pod', None)
+        time_range = request.args.get('time_range', '1h')  # Default 1 hour
+        
+        # Convert time range to seconds
+        time_map = {
+            '5s': 5,
+            '10s': 10,
+            '30s': 30,
+            '60s': 60,
+            '5m': 300,
+            '15m': 900,
+            '1h': 3600,
+            '6h': 21600
+        }
+        since_seconds = time_map.get(time_range, 3600)
+        
+        # Get pods in namespace
+        if pod_name:
+            # Get specific pod
+            pods = [v1.read_namespaced_pod(name=pod_name, namespace=namespace)]
+        else:
+            # Get all pods with java-api label
+            pod_list = v1.list_namespaced_pod(namespace, label_selector="app=java-api")
+            pods = pod_list.items
+        
+        total_requests = 0
+        success_count = 0
+        error_count = 0
+        
+        for pod in pods:
+            try:
+                # Get logs for the time range
+                logs = v1.read_namespaced_pod_log(
+                    name=pod.metadata.name if hasattr(pod, 'metadata') else pod_name,
+                    namespace=namespace,
+                    since_seconds=since_seconds
+                )
+                
+                # Count requests
+                log_lines = logs.split('\n')
+                for line in log_lines:
+                    if 'GET /' in line and 'HTTP' in line:
+                        total_requests += 1
+                        if ' 200 ' in line:
+                            success_count += 1
+                        elif ' 404 ' in line or ' 500 ' in line or ' 503 ' in line:
+                            error_count += 1
+            except Exception as e:
+                logger.warning(f"Could not read logs for pod: {e}")
+        
+        success_rate = (success_count / total_requests * 100) if total_requests > 0 else 100
+        
+        return jsonify({
+            'submit': total_requests,
+            'delivered': success_count,
+            'failure': error_count,
+            'success_rate': round(success_rate, 2),
+            'time_range': time_range
+        })
+    except Exception as e:
+        logger.error(f"Error getting request metrics: {e}")
+        return jsonify({'submit': 0, 'delivered': 0, 'failure': 0, 'success_rate': 0, 'time_range': time_range})
+
 if __name__ == '__main__':
     logger.info("Starting Kubernetes Dashboard Server")
     app.run(host='0.0.0.0', port=8888)

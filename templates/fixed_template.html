@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="stylesheet" href="/static/css/pod-health.css">
+    <link rel="stylesheet" href="/static/css/metrics.css">
     <style>
         :root {
             --primary-color: #326ce5;
@@ -685,6 +686,7 @@
             <a href="#" onclick="showSection('deployments-section')"><i class="fas fa-layer-group"></i> <span>Deployments</span></a>
             <a href="#" onclick="showSection('services-section')"><i class="fas fa-network-wired"></i> <span>Services</span></a>
             <a href="#" onclick="showSection('hpa-section')"><i class="fas fa-chart-line"></i> <span>HPA</span></a>
+            <a href="#" onclick="showSection('metrics-section')"><i class="fas fa-chart-area"></i> <span>Metrics</span></a>
             <a href="#" onclick="showSection('namespaces-section')"><i class="fas fa-project-diagram"></i> <span>Namespaces</span></a>
             <a href="#" onclick="showSection('alerts-section')"><i class="fas fa-exclamation-triangle"></i> <span>Alerts</span></a>
             <a href="http://192.168.47.152:8888/chatbot" target="_blank"><i class="fas fa-robot"></i> <span>Chatbot</span></a>
@@ -1230,6 +1232,136 @@
             </div>
         </div>
     </div>
+    <!-- Metrics Section -->
+    <div class="row mb-4" id="metrics-section" style="display: none;">
+        <div class="col-md-12">
+            <div class="metrics-dashboard">
+                <!-- Metrics Header -->
+                <div class="metrics-header">
+                    <div class="metrics-filters">
+                        <select id="metricsNamespace" class="metrics-select" onchange="loadMetricsData()">
+                            <option value="">All Namespaces</option>
+                        </select>
+                        <select id="metricsPod" class="metrics-select" onchange="loadMetricsData()">
+                            <option value="">Select Pod</option>
+                        </select>
+                        <select id="metricsTimeRange" class="metrics-select" onchange="loadMetricsData()">
+                            <option value="5s">Last 5 seconds</option>
+                            <option value="10s">Last 10 seconds</option>
+                            <option value="30s">Last 30 seconds</option>
+                            <option value="60s">Last 60 seconds</option>
+                            <option value="5m">Last 5 minutes</option>
+                            <option value="15m">Last 15 minutes</option>
+                            <option value="1h" selected>Last 1 hour</option>
+                            <option value="6h">Last 6 hours</option>
+                        </select>
+                    </div>
+                    <button class="metrics-refresh-btn" onclick="refreshMetrics()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+
+                <!-- Status Cards -->
+                <div class="metrics-status-cards">
+                    <div class="metrics-status-card">
+                        <div class="status-label">Status</div>
+                        <div class="status-value status-up" id="metricsStatus">UP</div>
+                    </div>
+                    <div class="metrics-status-card">
+                        <div class="status-label">Uptime</div>
+                        <div class="status-value" id="metricsUptime">-</div>
+                    </div>
+                    <div class="metrics-status-card">
+                        <div class="status-label">Start time</div>
+                        <div class="status-value" id="metricsStartTime">-</div>
+                    </div>
+                    <div class="metrics-status-card">
+                        <div class="status-label">Pod Info</div>
+                        <div class="status-value status-small" id="metricsPodInfo">-</div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="metrics-charts-grid">
+                    <!-- CPU Usage -->
+                    <div class="metrics-chart-card">
+                        <div class="chart-title">CPU Usage</div>
+                        <canvas id="cpuChart"></canvas>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #3dba8c;"></span>
+                                <span>CPU cores</span>
+                                <span class="legend-value" id="cpuCurrent">-</span>
+                            </div>
+                        </div>
+                        <div class="chart-stats" id="cpuStats">-</div>
+                    </div>
+
+                    <!-- Memory Usage -->
+                    <div class="metrics-chart-card">
+                        <div class="chart-title">Memory Usage</div>
+                        <canvas id="memoryChart"></canvas>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #326ce5;"></span>
+                                <span>Used</span>
+                                <span class="legend-value" id="memUsed">-</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #ffbe0b;"></span>
+                                <span>Limit</span>
+                                <span class="legend-value" id="memLimit">-</span>
+                            </div>
+                        </div>
+                        <div class="chart-stats" id="memStats">-</div>
+                    </div>
+
+                    <!-- Network I/O -->
+                    <div class="metrics-chart-card">
+                        <div class="chart-title">Network I/O</div>
+                        <canvas id="networkChart"></canvas>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #3dba8c;"></span>
+                                <span>Receive</span>
+                                <span class="legend-value" id="netReceive">-</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #ff6b6b;"></span>
+                                <span>Transmit</span>
+                                <span class="legend-value" id="netTransmit">-</span>
+                            </div>
+                        </div>
+                        <div class="chart-stats" id="netStats">-</div>
+                    </div>
+
+                    <!-- API Request Metrics -->
+                    <div class="metrics-chart-card">
+                        <div class="chart-title">API Request Metrics</div>
+                        <canvas id="apiRequestChart"></canvas>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #3dba8c;"></span>
+                                <span>Delivered</span>
+                                <span class="legend-value" id="apiDelivered">-</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #326ce5;"></span>
+                                <span>Submit</span>
+                                <span class="legend-value" id="apiSubmit">-</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #ff6b6b;"></span>
+                                <span>Failure</span>
+                                <span class="legend-value clickable" id="apiFailure" onclick="showFailureDetails()">-</span>
+                            </div>
+                        </div>
+                        <div class="chart-stats" id="apiStats">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Alerts Section - NOW AT THE BOTTOM -->
     <div class="row mb-4" id="alerts-section">
         <div class="col-md-12">
@@ -1252,7 +1384,9 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="/static/js/pod-health.js"></script>
+<script src="/static/js/metrics.js"></script>
 <script>
         // Fetch data from API
         async function fetchData() {
@@ -1981,6 +2115,7 @@ function showSection(sectionId) {
         'deployments-section',
         'services-section',
         'hpa-section',
+        'metrics-section',
         'namespaces-section',
         'alerts-section'
     ];
@@ -1998,11 +2133,18 @@ function showSection(sectionId) {
         link.getAttribute('onclick')?.includes(sectionId)
     );
     if (activeLink) activeLink.classList.add('active');
+    
+    // Load metrics when metrics section is shown
+    if (sectionId === 'metrics-section') {
+        initMetricsDashboard();
+    } else {
+        cleanupMetrics();
+    }
 }
 
 window.onload = () => {
     // Hide all but dashboard on load
-    document.querySelectorAll('#nodes-section, #pods-section, #deployments-section, #services-section, #hpa-section, #namespaces-section, #alerts-section')
+    document.querySelectorAll('#nodes-section, #pods-section, #deployments-section, #services-section, #hpa-section, #metrics-section, #namespaces-section, #alerts-section')
         .forEach(el => el.style.display = 'none');
     const dashboard = document.getElementById('dashboard-section');
     if (dashboard) dashboard.style.display = 'block';
@@ -2013,23 +2155,23 @@ window.onload = () => {
 
 <!-- Pod Details Modal -->
 <div aria-hidden="true" aria-labelledby="podDetailsModalLabel" class="modal fade" id="podDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="podDetailsModalLabel">Pod Details</h5>
-                    <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
-        </div>
-        <div class="modal-body">
-            <div id="podDetailsContent">
-            <!-- Pod details will be populated here -->
+                <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+            </div>
+            <div class="modal-body">
+                <div id="podDetailsContent">
+                    <!-- Pod details will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Close</button>
+                <button class="btn btn-primary" id="restartPodBtn" type="button">Restart Pod</button>
+            </div>
         </div>
     </div>
-    <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Close</button>
-        <button class="btn btn-primary" id="restartPodBtn" type="button">Restart Pod</button>
-    </div>
-</div>
-</div>
 </div>
 
 <!-- Pod Logs Modal -->
@@ -2086,6 +2228,24 @@ window.onload = () => {
             </div>
             <div class="modal-body">
                 <div id="eventsContent">Loading events...</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Failure Details Modal -->
+<div class="modal fade" id="apiFailureModal" tabindex="-1" aria-labelledby="apiFailureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="apiFailureModalLabel">API Failure Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="apiFailureContent">Loading failure details...</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -2187,9 +2347,27 @@ function loadHPA() {
         });
 }
 
+// Auto-refresh HPA every 30 seconds
+let hpaRefreshInterval;
+
+
+function startHPAAutoRefresh() {
+    if (hpaRefreshInterval) clearInterval(hpaRefreshInterval);
+    hpaRefreshInterval = setInterval(() => {
+        const hpaSection = document.getElementById('hpa-section');
+        if (hpaSection && hpaSection.style.display !== 'none') {
+            loadHPA();
+        }
+    }, 30000);
+}
+
+
+
 // Load pod communication when page loads
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(loadPodCommunication, 1000);
     setTimeout(loadHPA, 1500);
+    // Start auto-refresh for HPA
+    startHPAAutoRefresh();
 });
 </script>
