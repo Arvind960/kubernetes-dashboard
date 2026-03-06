@@ -66,9 +66,10 @@ async function loadMetricsData() {
                     window.metricsHistory = [];
                 }
                 
-                // Add current data point
+                // Add current data point with current timestamp
+                const now = new Date();
                 window.metricsHistory.push({
-                    time: new Date(),
+                    time: now,
                     submit: apiData.submit,
                     delivered: apiData.delivered,
                     failure: apiData.failure,
@@ -80,14 +81,33 @@ async function loadMetricsData() {
                     window.metricsHistory.shift();
                 }
                 
-                // Use historical data for chart
-                metrics.apiRequests = window.metricsHistory.map(h => ({
-                    time: h.time,
-                    submit: h.submit,
-                    delivered: h.delivered,
-                    failure: h.failure,
-                    successRate: h.successRate
-                }));
+                // Build chart data with proper time alignment
+                metrics.apiRequests = [];
+                
+                // If we have less than 20 points, pad with zeros at the beginning
+                const paddingNeeded = 20 - window.metricsHistory.length;
+                for (let i = 0; i < paddingNeeded; i++) {
+                    const time = new Date(now - (19 - i) * 60000);
+                    metrics.apiRequests.push({
+                        time: time,
+                        submit: 0,
+                        delivered: 0,
+                        failure: 0,
+                        successRate: 0
+                    });
+                }
+                
+                // Add actual historical data with aligned timestamps
+                window.metricsHistory.forEach((h, index) => {
+                    const alignedTime = new Date(now - (window.metricsHistory.length - 1 - index) * 60000);
+                    metrics.apiRequests.push({
+                        time: alignedTime,
+                        submit: h.submit,
+                        delivered: h.delivered,
+                        failure: h.failure,
+                        successRate: h.successRate
+                    });
+                });
                 
             } catch (error) {
                 console.log('Using simulated API metrics');
