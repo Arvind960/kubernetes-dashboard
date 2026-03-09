@@ -6,10 +6,28 @@ let metricsInterval = null;
 function initMetricsDashboard() {
     loadNamespaces();
     loadMetricsData();
+    checkPrometheusStatus();
     
     // Auto-refresh every 30 seconds
     if (metricsInterval) clearInterval(metricsInterval);
     metricsInterval = setInterval(loadMetricsData, 30000);
+}
+
+// Check Prometheus status
+async function checkPrometheusStatus() {
+    try {
+        const response = await fetch('/api/prometheus/status');
+        const status = await response.json();
+        const indicator = document.getElementById('prometheusStatus');
+        
+        if (status.connected) {
+            indicator.style.display = 'block';
+        } else {
+            indicator.style.display = 'none';
+        }
+    } catch (error) {
+        document.getElementById('prometheusStatus').style.display = 'none';
+    }
 }
 
 // Load namespaces for filter
@@ -49,6 +67,44 @@ async function loadMetricsData() {
         
         // Calculate metrics - pass all pods for uptime calculation
         const metrics = calculateMetrics(pods.length > 0 ? pods : data.pods);
+        
+        // Try to fetch Prometheus metrics first
+        try {
+            const promStatusResponse = await fetch('/api/prometheus/status');
+            const promStatus = await promStatusResponse.json();
+            
+            if (promStatus.connected) {
+                // Fetch real metrics from Prometheus
+                let promUrl = `/api/prometheus/metrics?duration=60`;
+                if (namespace) promUrl += `&namespace=${namespace}`;
+                if (selectedPods.length > 0) {
+                    selectedPods.forEach(pod => promUrl += `&pod=${pod}`);
+                }
+                
+                const promResponse = await fetch(promUrl);
+                if (promResponse.ok) {
+                    const promData = await promResponse.json();
+                    
+                    // Convert Prometheus data to chart format
+                    if (promData.cpu && promData.cpu.length > 0) {
+                        metrics.cpu = convertPrometheusToChart(promData.cpu, 'cpu');
+                    }
+                    if (promData.memory && promData.memory.length > 0) {
+                        metrics.memory = convertPrometheusToChart(promData.memory, 'memory');
+                    }
+                    if (promData.network_rx && promData.network_rx.length > 0) {
+                        metrics.network.rx = convertPrometheusToChart(promData.network_rx, 'network');
+                    }
+                    if (promData.network_tx && promData.network_tx.length > 0) {
+                        metrics.network.tx = convertPrometheusToChart(promData.network_tx, 'network');
+                    }
+                    
+                    console.log('✅ Using Prometheus metrics');
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Prometheus not available, using simulated metrics');
+        }
         
         // Fetch real API metrics if test-application namespace is selected
         if (namespace === 'test-application') {
@@ -189,6 +245,56 @@ document.addEventListener('click', function(event) {
         dropdown.style.display = 'none';
     }
 });
+
+// Convert Prometheus data to chart format
+function convertPrometheusToChart(promData, type) {
+    const now = new Date();
+    const chartData = [];
+    
+    // Aggregate all series data
+    const timeMap = new Map();
+    
+    promData.forEach(series => {
+        if (series.values && series.values.length > 0) {
+            series.values.forEach(([timestamp, value]) => {
+                const time = new Date(timestamp * 1000);
+                const key = time.getTime();
+                
+                if (!timeMap.has(key)) {
+                    timeMap.set(key, { time: time, values: [] });
+                }
+                
+                let numValue = parseFloat(value);
+                if (type === 'cpu') {
+                    numValue = numValue; // CPU is in cores
+                } else if (type === 'memory') {
+                    numValue = numValue / (1024 * 1024); // Convert to MB
+                } else if (type === 'network') {
+                    numValue = numValue / 1024; // Convert to KB/s
+                }
+                
+                timeMap.get(key).values.push(numValue);
+            });
+        }
+    });
+    
+    // Average values for each timestamp and take last 20 points
+    const sortedTimes = Array.from(timeMap.keys()).sort();
+    const lastTimes = sortedTimes.slice(-20);
+    
+    lastTimes.forEach(key => {
+        const data = timeMap.get(key);
+        const avgValue = data.values.reduce((a, b) => a + b, 0) / data.values.length;
+        
+        if (type === 'memory') {
+            chartData.push({ time: data.time, value: avgValue, limit: 256 });
+        } else {
+            chartData.push({ time: data.time, value: avgValue });
+        }
+    });
+    
+    return chartData.length > 0 ? chartData : null;
+}
 
 // Calculate metrics from pods
 function calculateMetrics(pods) {

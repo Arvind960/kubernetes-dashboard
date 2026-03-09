@@ -1271,9 +1271,15 @@
                             </select>
                         </div>
                     </div>
-                    <button class="metrics-refresh-btn" onclick="refreshMetrics()">
-                        <i class="fas fa-sync"></i> Refresh
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div id="prometheusStatus" style="display: none; padding: 6px 12px; background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; font-size: 11px;">
+                            <i class="fas fa-circle" style="color: #3dba8c; font-size: 8px;"></i>
+                            <span style="color: #3dba8c; margin-left: 5px;">Prometheus</span>
+                        </div>
+                        <button class="metrics-refresh-btn" onclick="refreshMetrics()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Status Cards -->
