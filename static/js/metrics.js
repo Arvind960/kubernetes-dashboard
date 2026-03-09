@@ -50,8 +50,8 @@ async function loadMetricsData() {
         // Calculate metrics - pass all pods for uptime calculation
         const metrics = calculateMetrics(pods.length > 0 ? pods : data.pods);
         
-        // Fetch real API metrics if dsdp namespace is selected
-        if (namespace === 'dsdp') {
+        // Fetch real API metrics if test-application namespace is selected
+        if (namespace === 'test-application') {
             try {
                 let apiUrl = `/api/request-metrics/${namespace}?time_range=${timeRange}`;
                 if (selectedPods.length > 0) {
