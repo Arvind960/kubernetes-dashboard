@@ -12,6 +12,16 @@ import subprocess
 import json
 from metrics_helper import get_pod_metrics, get_node_metrics, format_cpu, format_memory
 
+# Import Prometheus client
+try:
+    from prometheus_client import PrometheusClient
+    PROMETHEUS_AVAILABLE = True
+    prom_client = PrometheusClient("http://localhost:9090")
+except Exception as e:
+    PROMETHEUS_AVAILABLE = False
+    prom_client = None
+    print(f"⚠️  Prometheus client not available: {e}")
+
 # Set up logging to file
 log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
 if not os.path.exists(log_dir):
@@ -1621,6 +1631,48 @@ def get_request_metrics(namespace):
         logger.error(f"Error getting request metrics: {e}")
         return jsonify({'submit': 0, 'delivered': 0, 'failure': 0, 'success_rate': 0, 'time_range': time_range})
 
+@app.route('/api/prometheus/status')
+def prometheus_status():
+    """Check Prometheus connection status"""
+    if not PROMETHEUS_AVAILABLE or not prom_client:
+        return jsonify({'available': False, 'message': 'Prometheus client not initialized'})
+    
+    connected = prom_client.check_connection()
+    return jsonify({
+        'available': True,
+        'connected': connected,
+        'url': prom_client.base_url
+    })
+
+@app.route('/api/prometheus/metrics')
+def get_prometheus_metrics():
+    """Get metrics from Prometheus"""
+    if not PROMETHEUS_AVAILABLE or not prom_client:
+        return jsonify({'error': 'Prometheus not available'}), 503
+    
+    if not prom_client.check_connection():
+        return jsonify({'error': 'Prometheus not connected. Run: ./start_prometheus_forward.sh'}), 503
+    
+    namespace = request.args.get('namespace')
+    pods = request.args.getlist('pod')
+    duration = int(request.args.get('duration', 60))
+    
+    try:
+        metrics = prom_client.get_metrics_range(
+            namespace=namespace,
+            pod_names=pods if pods else None,
+            duration_minutes=duration
+        )
+        return jsonify(metrics)
+    except Exception as e:
+        logger.error(f"Error fetching Prometheus metrics: {e}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     logger.info("Starting Kubernetes Dashboard Server")
+    if PROMETHEUS_AVAILABLE and prom_client and prom_client.check_connection():
+        logger.info("✅ Prometheus connected at http://localhost:9090")
+    else:
+        logger.warning("⚠️  Prometheus not connected. Metrics will use simulated data.")
+        logger.warning("   To enable Prometheus: ./start_prometheus_forward.sh")
     app.run(host='0.0.0.0', port=8888)
