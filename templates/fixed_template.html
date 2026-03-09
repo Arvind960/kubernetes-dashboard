@@ -1239,22 +1239,37 @@
                 <!-- Metrics Header -->
                 <div class="metrics-header">
                     <div class="metrics-filters">
-                        <select id="metricsNamespace" class="metrics-select" onchange="loadMetricsData()">
-                            <option value="">All Namespaces</option>
-                        </select>
-                        <select id="metricsPod" class="metrics-select" onchange="loadMetricsData()">
-                            <option value="">Select Pod</option>
-                        </select>
-                        <select id="metricsTimeRange" class="metrics-select" onchange="loadMetricsData()">
-                            <option value="5s">Last 5 seconds</option>
-                            <option value="10s">Last 10 seconds</option>
-                            <option value="30s">Last 30 seconds</option>
-                            <option value="60s">Last 60 seconds</option>
-                            <option value="5m">Last 5 minutes</option>
-                            <option value="15m">Last 15 minutes</option>
-                            <option value="1h" selected>Last 1 hour</option>
-                            <option value="6h">Last 6 hours</option>
-                        </select>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="color: #888; font-size: 12px; white-space: nowrap;">Namespace:</label>
+                            <select id="metricsNamespace" class="metrics-select-compact" onchange="loadMetricsData()">
+                                <option value="">All Namespaces</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="color: #888; font-size: 12px; white-space: nowrap;">Select Pods:</label>
+                            <div style="position: relative;">
+                                <div id="metricsPodButton" class="metrics-select-compact" onclick="togglePodDropdown()" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 240px;">
+                                    <span id="metricsPodLabel">Select pods...</span>
+                                    <i class="fas fa-chevron-down" style="font-size: 10px;"></i>
+                                </div>
+                                <div id="metricsPodDropdown" class="pod-dropdown-list" style="display: none;">
+                                    <div style="color: #888; font-size: 12px;">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="color: #888; font-size: 12px; white-space: nowrap;">Time Range:</label>
+                            <select id="metricsTimeRange" class="metrics-select-compact" onchange="loadMetricsData()">
+                                <option value="5s">5 sec</option>
+                                <option value="10s">10 sec</option>
+                                <option value="30s">30 sec</option>
+                                <option value="60s">1 min</option>
+                                <option value="5m">5 min</option>
+                                <option value="15m">15 min</option>
+                                <option value="1h" selected>1 hour</option>
+                                <option value="6h">6 hours</option>
+                            </select>
+                        </div>
                     </div>
                     <button class="metrics-refresh-btn" onclick="refreshMetrics()">
                         <i class="fas fa-sync"></i> Refresh

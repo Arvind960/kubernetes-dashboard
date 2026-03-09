@@ -18,6 +18,8 @@
 .metrics-filters {
     display: flex;
     gap: 10px;
+    flex-wrap: nowrap;
+    align-items: flex-start;
 }
 
 .metrics-select {
@@ -28,6 +30,95 @@
     border-radius: 4px;
     font-size: 14px;
     min-width: 150px;
+}
+
+.metrics-select-compact {
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    color: #d4d4d4;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 140px;
+}
+
+.pod-list-compact {
+    max-height: 60px;
+    overflow-y: auto;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 6px;
+    background: #2d2d30;
+    width: 240px;
+}
+
+.pod-dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 6px;
+    background: #2d2d30;
+    width: 240px;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.pod-dropdown-list label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    cursor: pointer;
+    color: #d4d4d4;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.pod-list-compact label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    cursor: pointer;
+    color: #d4d4d4;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.pod-list-compact input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.metrics-select[multiple] {
+    height: 100px;
+    overflow-y: auto;
+}
+
+.metrics-select[multiple] option {
+    padding: 5px;
+    border-radius: 2px;
+}
+
+.metrics-select[multiple] option:checked {
+    background: #326ce5;
+    color: white;
+}
+
+.pod-checkbox-container {
+    min-width: 200px;
+}
+
+.pod-checkbox-container input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
 }
 
 .metrics-select:focus {

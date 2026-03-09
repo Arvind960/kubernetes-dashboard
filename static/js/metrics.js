@@ -33,7 +33,7 @@ async function loadNamespaces() {
 async function loadMetricsData() {
     try {
         const namespace = document.getElementById('metricsNamespace').value;
-        const podName = document.getElementById('metricsPod').value;
+        const selectedPods = Array.from(document.querySelectorAll('#metricsPodDropdown input[type="checkbox"]:checked')).map(cb => cb.value);
         const timeRange = document.getElementById('metricsTimeRange').value;
         
         const response = await fetch('/api/data');
@@ -42,7 +42,7 @@ async function loadMetricsData() {
         // Filter pods
         let pods = data.pods;
         if (namespace) pods = pods.filter(p => p.namespace === namespace);
-        if (podName) pods = pods.filter(p => p.name === podName);
+        if (selectedPods.length > 0) pods = pods.filter(p => selectedPods.includes(p.name));
         
         // Update pod selector
         updatePodSelector(data.pods, namespace);
@@ -54,8 +54,8 @@ async function loadMetricsData() {
         if (namespace === 'dsdp') {
             try {
                 let apiUrl = `/api/request-metrics/${namespace}?time_range=${timeRange}`;
-                if (podName) {
-                    apiUrl += `&pod=${podName}`;
+                if (selectedPods.length > 0) {
+                    apiUrl += `&pod=${selectedPods.join(',')}`;
                 }
                 
                 const apiResponse = await fetch(apiUrl);
@@ -127,19 +127,68 @@ async function loadMetricsData() {
 
 // Update pod selector
 function updatePodSelector(allPods, namespace) {
-    const select = document.getElementById('metricsPod');
-    const currentValue = select.value;
+    const container = document.getElementById('metricsPodDropdown');
+    const currentChecked = Array.from(document.querySelectorAll('#metricsPodDropdown input[type="checkbox"]:checked')).map(cb => cb.value);
     
     let pods = allPods;
     if (namespace) pods = pods.filter(p => p.namespace === namespace);
     
-    select.innerHTML = '<option value="">All Pods</option>';
+    if (pods.length === 0) {
+        container.innerHTML = '<div style="color: #888; font-size: 11px; padding: 2px;">No pods</div>';
+        updatePodLabel();
+        return;
+    }
+    
+    container.innerHTML = '';
     pods.forEach(pod => {
-        select.innerHTML += `<option value="${pod.name}">${pod.name}</option>`;
+        const label = document.createElement('label');
+        label.onmouseover = () => label.style.background = '#3e3e42';
+        label.onmouseout = () => label.style.background = 'transparent';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = pod.name;
+        checkbox.checked = currentChecked.includes(pod.name);
+        checkbox.onchange = () => {
+            updatePodLabel();
+            loadMetricsData();
+        };
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(pod.name));
+        container.appendChild(label);
     });
     
-    if (currentValue) select.value = currentValue;
+    updatePodLabel();
 }
+
+// Toggle pod dropdown
+function togglePodDropdown() {
+    const dropdown = document.getElementById('metricsPodDropdown');
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+// Update pod label
+function updatePodLabel() {
+    const selected = Array.from(document.querySelectorAll('#metricsPodDropdown input[type="checkbox"]:checked'));
+    const label = document.getElementById('metricsPodLabel');
+    if (selected.length === 0) {
+        label.textContent = 'Select pods...';
+    } else if (selected.length === 1) {
+        label.textContent = selected[0].value;
+    } else {
+        label.textContent = `${selected.length} pods selected`;
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('metricsPodDropdown');
+    const button = document.getElementById('metricsPodButton');
+    if (dropdown && button && !button.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.style.display = 'none';
+    }
+});
 
 // Calculate metrics from pods
 function calculateMetrics(pods) {
