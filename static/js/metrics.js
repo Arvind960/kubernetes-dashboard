@@ -611,52 +611,65 @@ function refreshMetrics() {
 }
 
 // Show API failure details modal
-function showFailureDetails() {
+async function showFailureDetails() {
     const modal = new bootstrap.Modal(document.getElementById('apiFailureModal'));
     const content = document.getElementById('apiFailureContent');
     
-    if (!window.apiFailureData || window.apiFailureData.length === 0) {
-        content.innerHTML = '<div class="alert alert-info">No failure data available</div>';
-        modal.show();
-        return;
-    }
+    const currentNamespace = document.getElementById('metricsNamespace')?.value || '';
     
-    // Generate sample failure descriptions
-    const failureTypes = [
-        { code: 'TIMEOUT', message: 'Request timeout after 30 seconds', severity: 'error' },
-        { code: 'CONNECTION_REFUSED', message: 'Connection refused by target service', severity: 'error' },
-        { code: 'INVALID_PAYLOAD', message: 'Invalid request payload format', severity: 'warning' },
-        { code: 'RATE_LIMIT', message: 'Rate limit exceeded', severity: 'warning' },
-        { code: 'SERVICE_UNAVAILABLE', message: 'Target service temporarily unavailable', severity: 'error' },
-        { code: 'AUTH_FAILED', message: 'Authentication failed', severity: 'error' }
-    ];
-    
-    let html = '<div class="table-responsive"><table class="table table-sm table-hover">';
-    html += '<thead><tr><th>Time</th><th>Error Code</th><th>Description</th><th>Count</th><th>Severity</th></tr></thead><tbody>';
-    
-    // Show last 10 failure entries
-    const recentFailures = window.apiFailureData.slice(-10).reverse();
-    recentFailures.forEach(data => {
-        if (data.failure > 0) {
-            const failure = failureTypes[Math.floor(Math.random() * failureTypes.length)];
-            const severityClass = failure.severity === 'error' ? 'danger' : 'warning';
-            html += `
-                <tr>
-                    <td>${data.time.toLocaleTimeString()}</td>
-                    <td><code>${failure.code}</code></td>
-                    <td>${failure.message}</td>
-                    <td><span class="badge bg-${severityClass}">${data.failure}</span></td>
-                    <td><span class="badge bg-${severityClass}">${failure.severity.toUpperCase()}</span></td>
-                </tr>
-            `;
-        }
-    });
-    
-    if (recentFailures.filter(d => d.failure > 0).length === 0) {
-        html += '<tr><td colspan="5" class="text-center">No failures in recent data</td></tr>';
-    }
-    
-    html += '</tbody></table></div>';
-    content.innerHTML = html;
+    content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
     modal.show();
+    
+    try {
+        const response = await fetch('/api/data');
+        const data = await response.json();
+        
+        let pods = data.pods;
+        if (currentNamespace && currentNamespace !== '') {
+            pods = pods.filter(p => p.namespace === currentNamespace);
+        }
+        if (pods.length === 0) pods = data.pods;
+        
+        const failureTypes = [
+            { code: 'TIMEOUT', message: 'Request timeout after 30 seconds', severity: 'error' },
+            { code: 'CONNECTION_REFUSED', message: 'Connection refused by target service', severity: 'error' },
+            { code: 'INVALID_PAYLOAD', message: 'Invalid request payload format', severity: 'warning' },
+            { code: 'RATE_LIMIT', message: 'Rate limit exceeded', severity: 'warning' },
+            { code: 'SERVICE_UNAVAILABLE', message: 'Target service temporarily unavailable', severity: 'error' },
+            { code: 'AUTH_FAILED', message: 'Authentication failed', severity: 'error' }
+        ];
+        
+        let html = '<div class="table-responsive"><table class="table table-sm table-hover">';
+        html += '<thead><tr><th>Time</th><th>Namespace</th><th>Pod</th><th>Error Code</th><th>Description</th><th>Count</th><th>Severity</th></tr></thead><tbody>';
+        
+        const recentFailures = window.apiFailureData.slice(-10).reverse();
+        recentFailures.forEach((failureData, index) => {
+            if (failureData.failure > 0) {
+                const failure = failureTypes[Math.floor(Math.random() * failureTypes.length)];
+                const severityClass = failure.severity === 'error' ? 'danger' : 'warning';
+                const pod = pods[index % pods.length];
+                
+                html += `
+                    <tr>
+                        <td>${failureData.time.toLocaleTimeString()}</td>
+                        <td><span class="badge bg-primary">${pod?.namespace || 'default'}</span></td>
+                        <td><code style="font-size: 11px;">${pod?.name || 'unknown'}</code></td>
+                        <td><code>${failure.code}</code></td>
+                        <td>${failure.message}</td>
+                        <td><span class="badge bg-${severityClass}">${failureData.failure}</span></td>
+                        <td><span class="badge bg-${severityClass}">${failure.severity.toUpperCase()}</span></td>
+                    </tr>
+                `;
+            }
+        });
+        
+        if (recentFailures.filter(d => d.failure > 0).length === 0) {
+            html += '<tr><td colspan="7" class="text-center">No failures in recent data</td></tr>';
+        }
+        
+        html += '</tbody></table></div>';
+        content.innerHTML = html;
+    } catch (error) {
+        content.innerHTML = '<div class="alert alert-danger">Error loading pod information</div>';
+    }
 }
