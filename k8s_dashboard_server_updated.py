@@ -1850,12 +1850,17 @@ def get_failure_details():
             import random
             from datetime import datetime, timedelta
             
-            # Filter pods by selected namespace if not 'all'
+            # Use only the selected pods for failure generation
             filtered_pods = pods_data
             if namespace != 'all':
-                filtered_pods = [pod for pod in pods_data if pod['namespace'] == namespace]
+                # If specific pods were selected, only use those pods
+                if selected_pod_names:
+                    filtered_pods = [pod for pod in pods_data if pod['name'] in selected_pod_names]
+                else:
+                    # If no specific pods selected but namespace is specified, filter by namespace
+                    filtered_pods = [pod for pod in pods_data if pod['namespace'] == namespace]
             
-            if filtered_pods:  # Only generate failures if we have pods in the selected namespace
+            if filtered_pods:  # Only generate failures if we have pods to use
                 # Use same seed for consistency
                 seed = hash(f"{namespace}_{time_range}_failures")
                 random.seed(seed)
