@@ -1570,8 +1570,13 @@ def get_request_metrics(namespace=None):
     """Get API request metrics from nginx access logs"""
     try:
         namespace = namespace or request.args.get('namespace', 'all')
-        pod_name = request.args.get('pod', None)
+        pod_names = request.args.get('pod', None)
         time_range = request.args.get('time_range', '1h')
+        
+        # Parse pod names if provided (can be comma-separated)
+        selected_pod_names = []
+        if pod_names:
+            selected_pod_names = [name.strip() for name in pod_names.split(',') if name.strip()]
         
         time_map = {
             '5s': 5, '10s': 10, '30s': 30, '60s': 60,
@@ -1590,8 +1595,15 @@ def get_request_metrics(namespace=None):
                     pods.extend(pod_list.items)
                 except:
                     pass
-        elif pod_name:
-            pods = [v1.read_namespaced_pod(name=pod_name, namespace=namespace)]
+        elif selected_pod_names:
+            # Get specific pods by name
+            pods = []
+            for pod_name in selected_pod_names:
+                try:
+                    pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+                    pods.append(pod)
+                except:
+                    pass
         else:
             # For testing, get all pods in the namespace
             pod_list = v1.list_namespaced_pod(namespace)
@@ -1617,7 +1629,7 @@ def get_request_metrics(namespace=None):
                     ns_pods = [p for p in pods if p.metadata.namespace == ns]
                     if ns_pods:
                         # Generate metrics for this namespace
-                        seed = hash(f"{ns}_{time_range}_{len(ns_pods)}")
+                        seed = hash(f"{ns}_{time_range}_full_namespace")
                         random.seed(seed)
                         
                         base_requests = max(1, since_seconds // 10)
@@ -1629,14 +1641,43 @@ def get_request_metrics(namespace=None):
                         success_count += ns_success
                         error_count += ns_error
             else:
-                # For specific namespace, generate metrics normally
-                seed = hash(f"{namespace}_{time_range}_{len(pods)}")
+                # For specific namespace, generate base metrics for the entire namespace first
+                seed = hash(f"{namespace}_{time_range}_full_namespace")
                 random.seed(seed)
                 
                 base_requests = max(1, since_seconds // 10)
-                total_requests = random.randint(base_requests, base_requests * 2)
-                success_count = int(total_requests * random.uniform(0.85, 0.95))
-                error_count = total_requests - success_count
+                namespace_total = random.randint(base_requests, base_requests * 2)
+                namespace_success = int(namespace_total * random.uniform(0.85, 0.95))
+                namespace_error = namespace_total - namespace_success
+                
+                if selected_pod_names:
+                    # If specific pods are selected, scale down the metrics proportionally
+                    # Get total pods in namespace to calculate the proportion
+                    try:
+                        all_namespace_pods = v1.list_namespaced_pod(namespace).items
+                        total_pods_in_namespace = len(all_namespace_pods)
+                        selected_pods_count = len(pods)
+                        
+                        if total_pods_in_namespace > 0:
+                            # Scale metrics based on the proportion of selected pods
+                            scale_factor = selected_pods_count / total_pods_in_namespace
+                            total_requests = int(namespace_total * scale_factor)
+                            success_count = int(namespace_success * scale_factor)
+                            error_count = int(namespace_error * scale_factor)
+                        else:
+                            total_requests = namespace_total
+                            success_count = namespace_success
+                            error_count = namespace_error
+                    except:
+                        # Fallback to full namespace metrics
+                        total_requests = namespace_total
+                        success_count = namespace_success
+                        error_count = namespace_error
+                else:
+                    # No specific pods selected, use full namespace metrics
+                    total_requests = namespace_total
+                    success_count = namespace_success
+                    error_count = namespace_error
             
             # Store the current metrics for failure details consistency
             app.config['CURRENT_METRICS'] = {
