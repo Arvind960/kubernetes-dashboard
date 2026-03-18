@@ -1781,7 +1781,7 @@ def get_failure_details():
                     ns_pods = [p for p in pods if p.metadata.namespace == ns]
                     if ns_pods:
                         # Generate metrics for this namespace
-                        seed = hash(f"{ns}_{time_range}_{len(ns_pods)}")
+                        seed = hash(f"{ns}_{time_range}_full_namespace")
                         random.seed(seed)
                         
                         time_map = {'5s': 5, '10s': 10, '30s': 30, '60s': 60, '5m': 300, '15m': 900, '1h': 3600, '6h': 21600}
@@ -1797,17 +1797,19 @@ def get_failure_details():
                 
                 pods_data = [{'name': p.metadata.name, 'namespace': p.metadata.namespace} for p in pods]
             else:
-                # For specific namespace, generate metrics normally
-                seed = hash(f"{namespace}_{time_range}_{len(pods)}")
+                # For specific namespace, generate base metrics for the entire namespace first
+                seed = hash(f"{namespace}_{time_range}_full_namespace")
                 random.seed(seed)
                 
                 time_map = {'5s': 5, '10s': 10, '30s': 30, '60s': 60, '5m': 300, '15m': 900, '1h': 3600, '6h': 21600}
                 since_seconds = time_map.get(time_range, 3600)
                 base_requests = max(1, since_seconds // 10)
-                total_requests = random.randint(base_requests, base_requests * 2)
-                success_count = int(total_requests * random.uniform(0.85, 0.95))
-                failure_count = total_requests - success_count
+                namespace_total = random.randint(base_requests, base_requests * 2)
+                namespace_success = int(namespace_total * random.uniform(0.85, 0.95))
+                namespace_error = namespace_total - namespace_success
                 
+                # Use full namespace metrics (no pod selection in failure details)
+                failure_count = namespace_error
                 pods_data = [{'name': p.metadata.name, 'namespace': p.metadata.namespace} for p in pods]
         
         # Generate failure details matching the exact failure count
