@@ -2382,6 +2382,85 @@ function startHPAAutoRefresh() {
     }, 30000);
 }
 
+function showFailureDetails() {
+    console.log('showFailureDetails called');
+    
+    // Get current namespace and time range from the dashboard state
+    let namespace = 'all';
+    let timeRange = '1h';
+    
+    // Try to get from the actual dashboard selectors in order of preference
+    const nsFilter = document.getElementById('namespaceFilter');
+    const metricsNs = document.getElementById('metricsNamespace');
+    const timeRangeSelect = document.getElementById('metricsTimeRange');
+    
+    // Use namespace from filters
+    if (metricsNs && metricsNs.value) {
+        namespace = metricsNs.value === '' ? 'all' : metricsNs.value;
+        console.log('Found metricsNamespace:', namespace);
+    } else if (nsFilter && nsFilter.value) {
+        namespace = nsFilter.value;
+        console.log('Found namespaceFilter:', namespace);
+    }
+    
+    // Get time range
+    if (timeRangeSelect && timeRangeSelect.value) {
+        timeRange = timeRangeSelect.value;
+        console.log('Found metricsTimeRange:', timeRange);
+    }
+    
+    console.log(`Using namespace: ${namespace}, timeRange: ${timeRange}`);
+    
+    fetch(`/api/failure-details?namespace=${namespace}&time_range=${timeRange}`)
+        .then(response => {
+            console.log('Response received:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Data received:', data);
+            const content = document.getElementById('apiFailureContent');
+            if (data.failures && data.failures.length > 0) {
+                let html = '<div class="table-responsive"><table class="table table-sm table-hover table-dark">';
+                html += '<thead><tr><th>Time</th><th>Namespace</th><th>Pod</th><th>Error Code</th><th>Description</th><th>Count</th><th>Severity</th></tr></thead><tbody>';
+                
+                data.failures.forEach(failure => {
+                    const severityClass = failure.severity === 'CRITICAL' ? 'danger' : 
+                                        failure.severity === 'ERROR' ? 'warning' : 'info';
+                    
+                    html += `<tr>
+                        <td><small style="color: #aaa;">${failure.time}</small></td>
+                        <td><span class="badge bg-info">${failure.namespace}</span></td>
+                        <td><code style="background: #333; color: #0f0; padding: 2px 6px; border-radius: 3px;">${failure.pod}</code></td>
+                        <td><span class="badge bg-secondary">${failure.error_code}</span></td>
+                        <td><small style="color: #fff;">${failure.description}</small></td>
+                        <td><span class="badge bg-${severityClass}">${failure.count}</span></td>
+                        <td><span class="badge bg-${severityClass}">${failure.severity}</span></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                const nsDisplay = namespace === 'all' ? 'all namespaces' : `${namespace} namespace`;
+                html += `<div class="text-center mt-2" style="color: #aaa;"><small>Total: ${data.total} failures (${nsDisplay}, ${timeRange} timeframe)</small></div>`;
+                content.innerHTML = html;
+            } else {
+                const nsDisplay = namespace === 'all' ? 'all namespaces' : `${namespace} namespace`;
+                content.innerHTML = `<div class="alert alert-success">No API failures found for ${nsDisplay} in the last ${timeRange}</div>`;
+            }
+            
+            // Show the modal
+            console.log('Showing modal...');
+            const modal = new bootstrap.Modal(document.getElementById('apiFailureModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error loading failure details:', error);
+            document.getElementById('apiFailureContent').innerHTML = 
+                '<div class="alert alert-danger">Error loading failure details</div>';
+            const modal = new bootstrap.Modal(document.getElementById('apiFailureModal'));
+            modal.show();
+        });
+}
+
 
 
 // Load pod communication when page loads

@@ -471,6 +471,72 @@
                     '<div class="alert alert-danger">Error loading communication flows</div>';
             });
     }
+
+    function showFailureDetails() {
+        const namespace = document.getElementById('namespaceSelect')?.value || 'all';
+        const timeRange = document.getElementById('timeRangeSelect')?.value || '1h';
+        
+        fetch(`/api/failure-details?namespace=${namespace}&time_range=${timeRange}`)
+            .then(response => response.json())
+            .then(data => {
+                const content = document.getElementById('apiFailureContent');
+                if (data.failures && data.failures.length > 0) {
+                    let html = '<div class="table-responsive"><table class="table table-sm table-hover">';
+                    html += '<thead><tr><th>Time</th><th>Namespace</th><th>Pod</th><th>Error Code</th><th>Description</th><th>Count</th><th>Severity</th></tr></thead><tbody>';
+                    
+                    data.failures.forEach(failure => {
+                        const severityClass = failure.severity === 'CRITICAL' ? 'danger' : 
+                                            failure.severity === 'ERROR' ? 'warning' : 'info';
+                        
+                        html += `<tr>
+                            <td><small class="text-muted">${failure.time}</small></td>
+                            <td><span class="badge bg-info">${failure.namespace}</span></td>
+                            <td><code>${failure.pod}</code></td>
+                            <td><span class="badge bg-secondary">${failure.error_code}</span></td>
+                            <td><small>${failure.description}</small></td>
+                            <td><span class="badge bg-${severityClass}">${failure.count}</span></td>
+                            <td><span class="badge bg-${severityClass}">${failure.severity}</span></td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    html += `<div class="text-muted text-center mt-2"><small>Total: ${data.total} failures</small></div>`;
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div class="alert alert-success">No API failures found for the selected time range</div>';
+                }
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('apiFailureModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error loading failure details:', error);
+                document.getElementById('apiFailureContent').innerHTML = 
+                    '<div class="alert alert-danger">Error loading failure details</div>';
+                const modal = new bootstrap.Modal(document.getElementById('apiFailureModal'));
+                modal.show();
+            });
+    }
     </script>
+
+<!-- API Failure Details Modal -->
+<div class="modal fade" id="apiFailureModal" tabindex="-1" aria-labelledby="apiFailureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="apiFailureModalLabel">API Failure Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="apiFailureContent">Loading failure details...</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

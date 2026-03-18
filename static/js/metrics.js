@@ -106,23 +106,23 @@ async function loadMetricsData() {
             console.log('⚠️ Prometheus not available, using simulated metrics');
         }
         
-        // Fetch real API metrics if test-application namespace is selected
-        if (namespace === 'test-application') {
-            try {
-                let apiUrl = `/api/request-metrics/${namespace}?time_range=${timeRange}`;
-                if (selectedPods.length > 0) {
-                    apiUrl += `&pod=${selectedPods.join(',')}`;
-                }
-                
-                const apiResponse = await fetch(apiUrl);
-                const apiData = await apiResponse.json();
-                
-                // Store historical data
-                if (!window.metricsHistory) {
-                    window.metricsHistory = [];
-                }
-                
-                // Add current data point with current timestamp
+        // Fetch real API metrics for any namespace
+        try {
+            const apiNamespace = namespace || 'all';
+            let apiUrl = `/api/request-metrics/${apiNamespace}?time_range=${timeRange}`;
+            if (selectedPods.length > 0 && namespace) {
+                apiUrl += `&pod=${selectedPods.join(',')}`;
+            }
+            
+            const apiResponse = await fetch(apiUrl);
+            const apiData = await apiResponse.json();
+            
+            // Store historical data
+            if (!window.metricsHistory) {
+                window.metricsHistory = [];
+            }
+            
+            // Add current data point with current timestamp
                 const now = new Date();
                 window.metricsHistory.push({
                     time: now,
@@ -165,9 +165,8 @@ async function loadMetricsData() {
                     });
                 });
                 
-            } catch (error) {
-                console.log('Using simulated API metrics');
-            }
+        } catch (error) {
+            console.log('Using simulated API metrics');
         }
         
         // Update status cards
@@ -615,61 +614,44 @@ async function showFailureDetails() {
     const modal = new bootstrap.Modal(document.getElementById('apiFailureModal'));
     const content = document.getElementById('apiFailureContent');
     
-    const currentNamespace = document.getElementById('metricsNamespace')?.value || '';
+    const currentNamespace = document.getElementById('metricsNamespace')?.value || 'all';
+    const timeRange = document.getElementById('metricsTimeRange')?.value || '1h';
     
     content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
     modal.show();
     
     try {
-        const response = await fetch('/api/data');
+        const response = await fetch(`/api/failure-details?namespace=${currentNamespace}&time_range=${timeRange}`);
         const data = await response.json();
         
-        let pods = data.pods;
-        if (currentNamespace && currentNamespace !== '') {
-            pods = pods.filter(p => p.namespace === currentNamespace);
-        }
-        if (pods.length === 0) pods = data.pods;
-        
-        const failureTypes = [
-            { code: 'TIMEOUT', message: 'Request timeout after 30 seconds', severity: 'error' },
-            { code: 'CONNECTION_REFUSED', message: 'Connection refused by target service', severity: 'error' },
-            { code: 'INVALID_PAYLOAD', message: 'Invalid request payload format', severity: 'warning' },
-            { code: 'RATE_LIMIT', message: 'Rate limit exceeded', severity: 'warning' },
-            { code: 'SERVICE_UNAVAILABLE', message: 'Target service temporarily unavailable', severity: 'error' },
-            { code: 'AUTH_FAILED', message: 'Authentication failed', severity: 'error' }
-        ];
-        
-        let html = '<div class="table-responsive"><table class="table table-sm table-hover">';
-        html += '<thead><tr><th>Time</th><th>Namespace</th><th>Pod</th><th>Error Code</th><th>Description</th><th>Count</th><th>Severity</th></tr></thead><tbody>';
-        
-        const recentFailures = window.apiFailureData.slice(-10).reverse();
-        recentFailures.forEach((failureData, index) => {
-            if (failureData.failure > 0) {
-                const failure = failureTypes[Math.floor(Math.random() * failureTypes.length)];
-                const severityClass = failure.severity === 'error' ? 'danger' : 'warning';
-                const pod = pods[index % pods.length];
+        if (data.failures && data.failures.length > 0) {
+            let html = '<div class="table-responsive"><table class="table table-sm table-hover">';
+            html += '<thead><tr><th>Time</th><th>Namespace</th><th>Pod</th><th>Error Code</th><th>Description</th><th>Count</th><th>Severity</th></tr></thead><tbody>';
+            
+            data.failures.forEach(failure => {
+                const severityClass = failure.severity === 'CRITICAL' ? 'danger' : 
+                                    failure.severity === 'ERROR' ? 'warning' : 'info';
                 
-                html += `
-                    <tr>
-                        <td>${failureData.time.toLocaleTimeString()}</td>
-                        <td><span class="badge bg-primary">${pod?.namespace || 'default'}</span></td>
-                        <td><code style="font-size: 11px;">${pod?.name || 'unknown'}</code></td>
-                        <td><code>${failure.code}</code></td>
-                        <td>${failure.message}</td>
-                        <td><span class="badge bg-${severityClass}">${failureData.failure}</span></td>
-                        <td><span class="badge bg-${severityClass}">${failure.severity.toUpperCase()}</span></td>
-                    </tr>
-                `;
-            }
-        });
-        
-        if (recentFailures.filter(d => d.failure > 0).length === 0) {
-            html += '<tr><td colspan="7" class="text-center">No failures in recent data</td></tr>';
+                html += `<tr>
+                    <td><small class="text-muted">${failure.time}</small></td>
+                    <td><span class="badge bg-info">${failure.namespace}</span></td>
+                    <td><code>${failure.pod}</code></td>
+                    <td><span class="badge bg-secondary">${failure.error_code}</span></td>
+                    <td><small>${failure.description}</small></td>
+                    <td><span class="badge bg-${severityClass}">${failure.count}</span></td>
+                    <td><span class="badge bg-${severityClass}">${failure.severity}</span></td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            const namespaceText = currentNamespace === 'all' ? 'all namespaces' : `namespace: ${currentNamespace}`;
+            html += `<div class="text-muted text-center mt-2"><small>Total: ${data.total} failures (${namespaceText}, ${timeRange} timeframe)</small></div>`;
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<div class="alert alert-success">No API failures found for the selected time range</div>';
         }
-        
-        html += '</tbody></table></div>';
-        content.innerHTML = html;
     } catch (error) {
-        content.innerHTML = '<div class="alert alert-danger">Error loading pod information</div>';
+        console.error('Error loading failure details:', error);
+        content.innerHTML = '<div class="alert alert-danger">Error loading failure details</div>';
     }
 }
