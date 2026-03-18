@@ -615,7 +615,7 @@ async function showFailureDetails() {
     const content = document.getElementById('apiFailureContent');
     
     const currentNamespace = document.getElementById('metricsNamespace')?.value || 'all';
-    const timeRange = document.getElementById('metricsTimeRange')?.value || '1h';
+    const timeRange = document.getElementById('metricsTimeRange')?.value || '60s';
     const selectedPods = Array.from(document.querySelectorAll('#metricsPodDropdown input[type="checkbox"]:checked')).map(cb => cb.value);
     
     content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
