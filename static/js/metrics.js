@@ -616,12 +616,18 @@ async function showFailureDetails() {
     
     const currentNamespace = document.getElementById('metricsNamespace')?.value || 'all';
     const timeRange = document.getElementById('metricsTimeRange')?.value || '1h';
+    const selectedPods = Array.from(document.querySelectorAll('#metricsPodDropdown input[type="checkbox"]:checked')).map(cb => cb.value);
     
     content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
     modal.show();
     
     try {
-        const response = await fetch(`/api/failure-details?namespace=${currentNamespace}&time_range=${timeRange}`);
+        let apiUrl = `/api/failure-details?namespace=${currentNamespace}&time_range=${timeRange}`;
+        if (selectedPods.length > 0 && currentNamespace !== 'all') {
+            apiUrl += `&pod=${selectedPods.join(',')}`;
+        }
+        
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
         if (data.failures && data.failures.length > 0) {

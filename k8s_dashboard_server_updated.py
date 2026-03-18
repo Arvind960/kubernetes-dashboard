@@ -1745,6 +1745,12 @@ def get_failure_details():
     try:
         namespace = request.args.get('namespace', 'all')
         time_range = request.args.get('time_range', '1h')
+        pod_names = request.args.get('pod', None)
+        
+        # Parse pod names if provided (can be comma-separated)
+        selected_pod_names = []
+        if pod_names:
+            selected_pod_names = [name.strip() for name in pod_names.split(',') if name.strip()]
         
         # Always generate fresh metrics for failure details to ensure namespace consistency
         # Get pods based on namespace selection
@@ -1756,6 +1762,15 @@ def get_failure_details():
                     # For testing, get all pods to show the difference
                     pod_list = v1.list_namespaced_pod(ns.metadata.name)
                     pods.extend(pod_list.items)
+                except:
+                    pass
+        elif selected_pod_names:
+            # Get specific pods by name
+            pods = []
+            for pod_name in selected_pod_names:
+                try:
+                    pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
+                    pods.append(pod)
                 except:
                     pass
         else:
@@ -1808,8 +1823,25 @@ def get_failure_details():
                 namespace_success = int(namespace_total * random.uniform(0.85, 0.95))
                 namespace_error = namespace_total - namespace_success
                 
-                # Use full namespace metrics (no pod selection in failure details)
-                failure_count = namespace_error
+                if selected_pod_names:
+                    # If specific pods are selected, scale down the metrics proportionally
+                    try:
+                        all_namespace_pods = v1.list_namespaced_pod(namespace).items
+                        total_pods_in_namespace = len(all_namespace_pods)
+                        selected_pods_count = len(pods)
+                        
+                        if total_pods_in_namespace > 0:
+                            # Scale metrics based on the proportion of selected pods
+                            scale_factor = selected_pods_count / total_pods_in_namespace
+                            failure_count = int(namespace_error * scale_factor)
+                        else:
+                            failure_count = namespace_error
+                    except:
+                        failure_count = namespace_error
+                else:
+                    # No specific pods selected, use full namespace metrics
+                    failure_count = namespace_error
+                
                 pods_data = [{'name': p.metadata.name, 'namespace': p.metadata.namespace} for p in pods]
         
         # Generate failure details matching the exact failure count
