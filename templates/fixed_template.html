@@ -2409,9 +2409,19 @@ function showFailureDetails() {
         console.log('Found metricsTimeRange:', timeRange);
     }
     
-    console.log(`Using namespace: ${namespace}, timeRange: ${timeRange}`);
+    // Get selected pods
+    const selectedPods = Array.from(document.querySelectorAll('#metricsPodDropdown input[type="checkbox"]:checked')).map(cb => cb.value);
+    console.log('Selected pods:', selectedPods);
     
-    fetch(`/api/failure-details?namespace=${namespace}&time_range=${timeRange}`)
+    // Build API URL
+    let apiUrl = `/api/failure-details?namespace=${namespace}&time_range=${timeRange}`;
+    if (selectedPods.length > 0 && namespace !== 'all') {
+        apiUrl += `&pod=${selectedPods.join(',')}`;
+    }
+    
+    console.log(`Using API URL: ${apiUrl}`);
+    
+    fetch(apiUrl)
         .then(response => {
             console.log('Response received:', response.status);
             return response.json();
