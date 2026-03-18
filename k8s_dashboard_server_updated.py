@@ -1613,81 +1613,25 @@ def get_request_metrics(namespace=None):
         success_count = 0
         error_count = 0
         
-        # Generate consistent metrics
-        import random
-        if pods:
-            if namespace == 'all':
-                # For "all namespaces", sum up metrics from individual namespaces
-                total_requests = 0
-                success_count = 0
-                error_count = 0
+        # Parse actual logs for real metrics
+        for pod in pods:
+            try:
+                logs = v1.read_namespaced_pod_log(
+                    name=pod.metadata.name,
+                    namespace=pod.metadata.namespace,
+                    since_seconds=since_seconds,
+                    tail_lines=1000
+                )
                 
-                # Get unique namespaces from pods
-                unique_namespaces = set(p.metadata.namespace for p in pods)
-                
-                for ns in unique_namespaces:
-                    ns_pods = [p for p in pods if p.metadata.namespace == ns]
-                    if ns_pods:
-                        # Generate metrics for this namespace
-                        seed = hash(f"{ns}_{time_range}_full_namespace")
-                        random.seed(seed)
-                        
-                        base_requests = max(1, since_seconds // 10)
-                        ns_total = random.randint(base_requests, base_requests * 2)
-                        ns_success = int(ns_total * random.uniform(0.85, 0.95))
-                        ns_error = ns_total - ns_success
-                        
-                        total_requests += ns_total
-                        success_count += ns_success
-                        error_count += ns_error
-            else:
-                # For specific namespace, generate base metrics for the entire namespace first
-                seed = hash(f"{namespace}_{time_range}_full_namespace")
-                random.seed(seed)
-                
-                base_requests = max(1, since_seconds // 10)
-                namespace_total = random.randint(base_requests, base_requests * 2)
-                namespace_success = int(namespace_total * random.uniform(0.85, 0.95))
-                namespace_error = namespace_total - namespace_success
-                
-                if selected_pod_names:
-                    # If specific pods are selected, scale down the metrics proportionally
-                    # Get total pods in namespace to calculate the proportion
-                    try:
-                        all_namespace_pods = v1.list_namespaced_pod(namespace).items
-                        total_pods_in_namespace = len(all_namespace_pods)
-                        selected_pods_count = len(pods)
-                        
-                        if total_pods_in_namespace > 0:
-                            # Scale metrics based on the proportion of selected pods
-                            scale_factor = selected_pods_count / total_pods_in_namespace
-                            total_requests = int(namespace_total * scale_factor)
-                            success_count = int(namespace_success * scale_factor)
-                            error_count = int(namespace_error * scale_factor)
-                        else:
-                            total_requests = namespace_total
-                            success_count = namespace_success
-                            error_count = namespace_error
-                    except:
-                        # Fallback to full namespace metrics
-                        total_requests = namespace_total
-                        success_count = namespace_success
-                        error_count = namespace_error
-                else:
-                    # No specific pods selected, use full namespace metrics
-                    total_requests = namespace_total
-                    success_count = namespace_success
-                    error_count = namespace_error
-            
-            # Store the current metrics for failure details consistency
-            app.config['CURRENT_METRICS'] = {
-                'namespace': namespace,
-                'time_range': time_range,
-                'total_requests': total_requests,
-                'success_count': success_count,
-                'error_count': error_count,
-                'pods': [{'name': p.metadata.name, 'namespace': p.metadata.namespace} for p in pods]
-            }
+                for line in logs.split('\n'):
+                    if 'HTTP' in line and ('GET /' in line or 'POST /' in line or '"GET /' in line or '"POST /' in line):
+                        total_requests += 1
+                        if ' 200 ' in line:
+                            success_count += 1
+                        elif ' 404 ' in line or ' 500 ' in line or ' 503 ' in line:
+                            error_count += 1
+            except:
+                pass
         
         success_rate = (success_count / total_requests * 100) if total_requests > 0 else 100
         
@@ -1741,160 +1685,107 @@ def get_prometheus_metrics():
 
 @app.route('/api/failure-details')
 def get_failure_details():
-    """Get API failure details consistent with request metrics"""
+    """Get API failure details from actual pod logs"""
     try:
         namespace = request.args.get('namespace', 'all')
         time_range = request.args.get('time_range', '1h')
         pod_names = request.args.get('pod', None)
         
-        # Parse pod names if provided (can be comma-separated)
         selected_pod_names = []
         if pod_names:
             selected_pod_names = [name.strip() for name in pod_names.split(',') if name.strip()]
         
-        # Always generate fresh metrics for failure details to ensure namespace consistency
-        # Get pods based on namespace selection
+        time_map = {'5s': 5, '10s': 10, '30s': 30, '60s': 60, '5m': 300, '15m': 900, '1h': 3600, '6h': 21600}
+        since_seconds = time_map.get(time_range, 3600)
+        
+        # Get pods
         if namespace == 'all':
             namespaces_list = v1.list_namespace()
             pods = []
             for ns in namespaces_list.items:
                 try:
-                    # For testing, get all pods to show the difference
-                    pod_list = v1.list_namespaced_pod(ns.metadata.name)
-                    pods.extend(pod_list.items)
+                    pods.extend(v1.list_namespaced_pod(ns.metadata.name).items)
                 except:
                     pass
         elif selected_pod_names:
-            # Get specific pods by name
             pods = []
             for pod_name in selected_pod_names:
                 try:
-                    pod = v1.read_namespaced_pod(name=pod_name, namespace=namespace)
-                    pods.append(pod)
+                    pods.append(v1.read_namespaced_pod(name=pod_name, namespace=namespace))
                 except:
                     pass
         else:
-            # For testing, get all pods in the namespace
-            pod_list = v1.list_namespaced_pod(namespace)
-            pods = pod_list.items
+            pods = v1.list_namespaced_pod(namespace).items
         
-        # Generate consistent metrics using same logic as request metrics
-        failure_count = 0
-        pods_data = []
-        
-        if pods:
-            import random
-            if namespace == 'all':
-                # For "all namespaces", sum up metrics from individual namespaces
-                total_requests = 0
-                success_count = 0
-                
-                # Get unique namespaces from pods
-                unique_namespaces = set(p.metadata.namespace for p in pods)
-                
-                for ns in unique_namespaces:
-                    ns_pods = [p for p in pods if p.metadata.namespace == ns]
-                    if ns_pods:
-                        # Generate metrics for this namespace
-                        seed = hash(f"{ns}_{time_range}_full_namespace")
-                        random.seed(seed)
-                        
-                        time_map = {'5s': 5, '10s': 10, '30s': 30, '60s': 60, '5m': 300, '15m': 900, '1h': 3600, '6h': 21600}
-                        since_seconds = time_map.get(time_range, 3600)
-                        base_requests = max(1, since_seconds // 10)
-                        ns_total = random.randint(base_requests, base_requests * 2)
-                        ns_success = int(ns_total * random.uniform(0.85, 0.95))
-                        ns_error = ns_total - ns_success
-                        
-                        total_requests += ns_total
-                        success_count += ns_success
-                        failure_count += ns_error
-                
-                pods_data = [{'name': p.metadata.name, 'namespace': p.metadata.namespace} for p in pods]
-            else:
-                # For specific namespace, generate base metrics for the entire namespace first
-                seed = hash(f"{namespace}_{time_range}_full_namespace")
-                random.seed(seed)
-                
-                time_map = {'5s': 5, '10s': 10, '30s': 30, '60s': 60, '5m': 300, '15m': 900, '1h': 3600, '6h': 21600}
-                since_seconds = time_map.get(time_range, 3600)
-                base_requests = max(1, since_seconds // 10)
-                namespace_total = random.randint(base_requests, base_requests * 2)
-                namespace_success = int(namespace_total * random.uniform(0.85, 0.95))
-                namespace_error = namespace_total - namespace_success
-                
-                if selected_pod_names:
-                    # If specific pods are selected, scale down the metrics proportionally
-                    try:
-                        all_namespace_pods = v1.list_namespaced_pod(namespace).items
-                        total_pods_in_namespace = len(all_namespace_pods)
-                        selected_pods_count = len(pods)
-                        
-                        if total_pods_in_namespace > 0:
-                            # Scale metrics based on the proportion of selected pods
-                            scale_factor = selected_pods_count / total_pods_in_namespace
-                            failure_count = int(namespace_error * scale_factor)
-                        else:
-                            failure_count = namespace_error
-                    except:
-                        failure_count = namespace_error
-                else:
-                    # No specific pods selected, use full namespace metrics
-                    failure_count = namespace_error
-                
-                pods_data = [{'name': p.metadata.name, 'namespace': p.metadata.namespace} for p in pods]
-        
-        # Generate failure details matching the exact failure count
+        # Parse actual logs for failures
         failures = []
-        if failure_count > 0 and pods_data:
-            import random
-            from datetime import datetime, timedelta
-            
-            # Use only the selected pods for failure generation
-            filtered_pods = pods_data
-            if namespace != 'all':
-                # If specific pods were selected, only use those pods
-                if selected_pod_names:
-                    filtered_pods = [pod for pod in pods_data if pod['name'] in selected_pod_names]
-                else:
-                    # If no specific pods selected but namespace is specified, filter by namespace
-                    filtered_pods = [pod for pod in pods_data if pod['namespace'] == namespace]
-            
-            if filtered_pods:  # Only generate failures if we have pods to use
-                # Use same seed for consistency
-                seed = hash(f"{namespace}_{time_range}_failures")
-                random.seed(seed)
+        from datetime import datetime
+        
+        error_map = {
+            '404': ('NOT_FOUND', 'Resource not found', 'WARNING'),
+            '500': ('INTERNAL_ERROR', 'Internal server error', 'CRITICAL'),
+            '503': ('SERVICE_UNAVAILABLE', 'Service unavailable', 'CRITICAL')
+        }
+        
+        for pod in pods:
+            try:
+                logs = v1.read_namespaced_pod_log(
+                    name=pod.metadata.name,
+                    namespace=pod.metadata.namespace,
+                    since_seconds=since_seconds,
+                    tail_lines=2000  # Increased to capture more failures
+                )
                 
-                error_types = ['CONNECTION_REFUSED', 'AUTH_FAILED', 'TIMEOUT', 'SERVICE_UNAVAILABLE']
-                severities = ['ERROR', 'WARNING', 'CRITICAL']
-                
-                time_map = {'5s': 5, '10s': 10, '30s': 30, '60s': 60, '5m': 300, '15m': 900, '1h': 3600, '6h': 21600}
-                since_seconds = time_map.get(time_range, 3600)
-                
-                for i in range(failure_count):
-                    pod = random.choice(filtered_pods)
-                    error_type = random.choice(error_types)
-                    severity = random.choice(severities)
-                    
-                    # Generate timestamp within the time range
-                    now = datetime.now()
-                    time_offset = random.randint(0, since_seconds)
-                    failure_time = now - timedelta(seconds=time_offset)
-                    
-                    failures.append({
-                        'time': failure_time.strftime('%I:%M:%S %p'),
-                        'namespace': pod['namespace'],
-                        'pod': pod['name'],
-                        'error_code': error_type,
-                        'description': f"{error_type.replace('_', ' ').title()} error",
-                        'count': 1,
-                        'severity': severity
-                    })
+                for line in logs.split('\n'):
+                    if 'HTTP' in line and ('GET /' in line or 'POST /' in line or '"GET /' in line or '"POST /' in line):
+                        status_code = None
+                        if ' 404 ' in line:
+                            status_code = '404'
+                        elif ' 500 ' in line:
+                            status_code = '500'
+                        elif ' 503 ' in line:
+                            status_code = '503'
+                        
+                        if status_code:
+                            endpoint = 'unknown'
+                            try:
+                                parts = line.split('"')
+                                if len(parts) > 1:
+                                    endpoint = parts[1].split(' ')[1] if ' ' in parts[1] else 'unknown'
+                            except:
+                                pass
+                            
+                            try:
+                                time_str = line.split('[')[1].split(']')[0]
+                                failure_time = datetime.strptime(time_str, '%d/%b/%Y:%H:%M:%S %z')
+                                time_display = failure_time.strftime('%I:%M:%S %p')
+                            except:
+                                time_display = datetime.now().strftime('%I:%M:%S %p')
+                            
+                            error_code, description, severity = error_map.get(status_code, ('UNKNOWN', 'Unknown error', 'ERROR'))
+                            
+                            failures.append({
+                                'time': time_display,
+                                'namespace': pod.metadata.namespace,
+                                'pod': pod.metadata.name,
+                                'error_code': error_code,
+                                'description': f"{description} - {endpoint}",
+                                'count': 1,
+                                'severity': severity
+                            })
+            except:
+                pass
         
         # Sort by time (most recent first)
         failures.sort(key=lambda x: x['time'], reverse=True)
         
-        return jsonify({'failures': failures, 'total': len(failures)})
+        # Store total count before limiting
+        total_failures = len(failures)
+        
+        # Limit to 100 most recent failures for display
+        failures = failures[:100]
+        
+        return jsonify({'failures': failures, 'total': total_failures})
     except Exception as e:
         logger.error(f"Error getting failure details: {e}")
         return jsonify({'failures': [], 'total': 0})
