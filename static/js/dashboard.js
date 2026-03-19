@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update the dashboard data periodically
     fetchDashboardData();
-    setInterval(fetchDashboardData, 10000); // Refresh every 10 seconds
+    setInterval(fetchDashboardData, 30000); // Refresh every 30 seconds
 });
 
 // Update circular progress indicators

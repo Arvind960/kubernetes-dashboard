@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>K8s Chatbot</title>
+    <meta charset="UTF-8">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:Arial,sans-serif;background:#1a1a1a;color:#fff;height:100vh;display:flex;flex-direction:column}
+        #header{background:#2d2d2d;padding:10px 20px;border-bottom:2px solid #444}
+        #chat{flex:1;padding:20px;overflow-y:auto}
+        .msg{padding:10px;margin:10px 0;border-radius:8px;max-width:80%}
+        .user{background:#0066cc;margin-left:auto}
+        .bot{background:#333}
+        #input-area{background:#2d2d2d;padding:15px;display:flex;gap:10px}
+        #msg-input{flex:1;padding:10px;border:none;border-radius:5px;background:#444;color:#fff}
+        #send-btn{padding:10px 20px;background:#0066cc;border:none;border-radius:5px;color:#fff;cursor:pointer}
+        #send-btn:hover{background:#0052a3}
+    </style>
+</head>
+<body>
+    <div id="header"><h2>🤖 K8s AI Assistant</h2></div>
+    <div id="chat"></div>
+    <div id="input-area">
+        <input type="text" id="msg-input" placeholder="Ask about your cluster..." onkeypress="if(event.key==='Enter')send()">
+        <button id="send-btn" onclick="send()">Send</button>
+    </div>
+    <script>
+        function addMsg(text,isUser){
+            const d=document.createElement('div');
+            d.className='msg '+(isUser?'user':'bot');
+            d.textContent=text;
+            document.getElementById('chat').appendChild(d);
+            d.scrollIntoView();
+        }
+        async function send(){
+            const input=document.getElementById('msg-input');
+            const msg=input.value.trim();
+            if(!msg)return;
+            addMsg(msg,true);
+            input.value='';
+            try{
+                const r=await fetch('/api/chatbot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+                const data=await r.json();
+                addMsg(data.response,false);
+            }catch(e){
+                addMsg('Error: '+e.message,false);
+            }
+        }
+    </script>
+</body>
+</html>
